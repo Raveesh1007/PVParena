@@ -1,0 +1,248 @@
+// Orchestration, audit and transcript storage. `code.md` §10.
+//
+// Nothing here is authoritative. Balances, terms, scores, winners and claims live on-chain and are
+// decided by the program; these tables exist so the worker can coordinate itself (locks,
+// idempotency) and so the proof page can show what happened off-chain (prompts, responses, request
+// IDs). If this database were lost, no player would lose a token and no match outcome would
+// change — only the audit trail would.
+//
+// It stores no API key, private key, bearer token or unencrypted keypair, ever.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // PostgreSQL, never SQLite: the worker takes row locks and relies on real transaction
+  // isolation, and SQLite's single-writer model would serialise the whole orchestrator.
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// The plaintext behind an on-chain strategy commitment, written once when the player commits and
+/// never updated.
+///
+/// The commitment is the primary key because that is what binds this row to the chain: the
+/// program stores those 32 bytes and the signed transaction binds them to the player, so a row
+/// keyed by them cannot be silently re-pointed at different text. Hashing happens in TypeScript
+/// only — the program never recomputes it. `code.md` §5.3.
+model StrategyCommitment {
+  /// sha256("stock-arena:strategy:v1" || match_pda || player_pubkey || salt || normalized_utf8),
+  /// lowercase hex.
+  commitment String @id @db.VarChar(64)
+
+  matchPda     String @db.VarChar(64)
+  playerWallet String @db.VarChar(64)
+
+  /// NFKC-normalized, CRLF-collapsed, trimmed. At most MAX_STRATEGY_BYTES UTF-8 bytes.
+  strategy   String @db.Text
+  /// The 32-byte salt as hex. Mandatory: without it a preset strategy could be brute-forced
+  /// against the on-chain commitment before the opponent joins. `code.md` §5.3.
+  salt       String @db.VarChar(64)
+  byteLength Int
+
+  /// Strategies become visible only once the match activates; until then this row is served to
+  /// nobody. The worker reads it to build prompts, and the proof page reads it afterwards.
+  createdAt DateTime @default(now())
+
+  @@index([matchPda])
+  @@index([playerWallet])
+}
+
+/// One ClawPump agent per player wallet, owned by the server.
+///
+/// Created only after on-chain state proves the wallet is a player in a match, so an unauthenticated
+/// caller cannot make us spend ClawPump credit. Players need no ClawPump account of their own.
+/// `code.md` §3.3.
+model BattleAgent {
+  playerWallet String @id @db.VarChar(64)
+
+  agentId     String @unique
+  /// The agent's own wallet, which must hold zero SOL and zero tokens at all times. Recorded so
+  /// the balance check has something to check and the proof page has something to show.
+  agentWallet String @db.VarChar(64)
+
+  /// Verified against the live ClawPump model list at creation; never a guessed identifier.
+  model  String
+  preset String
+
+  /// When the agent wallet was last confirmed empty. Checked after creation and before every
+  /// round; chat is refused if it is ever unexpectedly funded. `code.md` §3.3.
+  lastZeroBalanceCheck DateTime?
+  status               AgentStatus @default(Active)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  turns AgentTurn[]
+}
+
+enum AgentStatus {
+  Active
+  /// Balance check found funds, or the agent is otherwise not safe to chat with.
+  Quarantined
+  Retired
+}
+
+/// A read-through cache of on-chain match state, for listing and rendering without hammering the
+/// RPC. Every financial decision still reads the chain.
+model MatchProjection {
+  matchPda String @id @db.VarChar(64)
+
+  chainState String
+  /// Slot the projection was last refreshed at, so a stale read can be detected rather than
+  /// trusted.
+  lastSlot   BigInt
+
+  creatorWallet    String  @db.VarChar(64)
+  challengerWallet String? @db.VarChar(64)
+  arenaPda         String  @db.VarChar(64)
+  profileKind      String
+
+  joinDeadlineTs       DateTime?
+  activationDeadlineTs DateTime?
+  startTs              DateTime?
+  roundDueTs           DateTime[]
+  targetEndTs          DateTime?
+  settlementDeadlineTs DateTime?
+  optionExpiryTs       DateTime?
+
+  creatorCommitment    String? @db.VarChar(64)
+  challengerCommitment String? @db.VarChar(64)
+
+  /// Signatures of the value-moving transactions, keyed by the action that produced them, for the
+  /// proof page's explorer links.
+  signatures Json @default("{}")
+
+  updatedAt DateTime @updatedAt
+
+  turns AgentTurn[]
+}
+
+/// One agent's response for one round: the public transcript. `code.md` §6.
+///
+/// The worker sees both predictions before submitting them, which the MVP does not pretend to
+/// eliminate. What makes that trust auditable is this table: the prompt hash, the sanitized
+/// response, its hash and the provider's request ID, all recorded whether the call succeeded or
+/// failed.
+model AgentTurn {
+  id String @id @default(uuid())
+
+  matchPda    String @db.VarChar(64)
+  round       Int
+  /// 0 = creator, 1 = challenger, matching the on-chain `predictions[round][player]` layout.
+  playerIndex Int
+
+  agentPlayerWallet String? @db.VarChar(64)
+
+  promptHash        String  @db.VarChar(64)
+  /// Secrets and upstream error bodies are stripped before this is written.
+  sanitizedResponse String? @db.Text
+  responseHash      String? @db.VarChar(64)
+  /// The parsed, schema-valid prediction, or null when the call timed out, errored or returned
+  /// something unparseable.
+  parsedPrediction  Json?
+
+  /// Mirrors the on-chain PredictionOutcome. A failure is a recorded outcome with a deterministic
+  /// maximum penalty, never a reason to retry: chat is not idempotent. `code.md` §3.3.
+  outcome   TurnOutcome
+  errorCode String?
+  /// ClawPump's `meta.requestId`, so a response can be traced back to the provider.
+  requestId String?
+
+  createdAt DateTime @default(now())
+
+  agent BattleAgent?     @relation(fields: [agentPlayerWallet], references: [playerWallet])
+  match MatchProjection? @relation(fields: [matchPda], references: [matchPda])
+
+  /// Exactly one turn per player per round. This is the database-level half of "never
+  /// blind-retry": a second attempt at the same turn cannot be written.
+  @@unique([matchPda, round, playerIndex])
+  @@index([matchPda])
+}
+
+enum TurnOutcome {
+  Valid
+  Timeout
+  ApiError
+  Malformed
+}
+
+/// The worker's unit of work, and its lock.
+///
+/// Keyed by an idempotency key derived from what the job does — `(match_pda, round)` for a round
+/// submission, `(match_pda)` for activation or settlement — so that two worker ticks racing on the
+/// same match collide on the primary key instead of both calling a paid API or posting a duplicate
+/// transaction. `code.md` §9.
+model OrchestrationJob {
+  idempotencyKey String @id
+
+  type     JobType
+  matchPda String? @db.VarChar(64)
+  round    Int?
+
+  status   JobStatus @default(Pending)
+  attempts Int       @default(0)
+
+  /// Lease, not a mutex: a worker that dies mid-job leaves an expiry behind rather than a lock
+  /// nobody can release.
+  leaseOwner  String?
+  leaseExpiry DateTime?
+  nextAttempt DateTime  @default(now())
+
+  /// Human-readable, already stripped of secrets and raw upstream bodies.
+  errorSummary String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, nextAttempt])
+  @@index([matchPda])
+}
+
+enum JobType {
+  Activate
+  SubmitRound
+  Settle
+  MarkOracleFailure
+}
+
+enum JobStatus {
+  Pending
+  Leased
+  Succeeded
+  /// Terminal and deliberate: a non-idempotent call that failed is recorded, not retried.
+  Failed
+}
+
+/// Evidence for the `code.md` §13 feasibility gates, written by whoever actually ran the check.
+///
+/// It exists so "verified" means a recorded observation rather than someone's memory, and so a
+/// blocking failure stays visible instead of being papered over with mock data in the demo.
+model IntegrationEvidence {
+  id String @id @default(uuid())
+
+  provider  String
+  checkType String
+  network   String
+
+  /// Mints, feed IDs, agent IDs, transaction signatures — identifiers, never payloads and never
+  /// credentials.
+  identifiers Json    @default("{}")
+  hashes      Json    @default("{}")
+  signature   String?
+
+  result     EvidenceResult
+  /// Sanitized; an upstream error body is summarized, not pasted.
+  notes      String?        @db.Text
+  observedAt DateTime       @default(now())
+
+  @@index([provider, checkType])
+}
+
+enum EvidenceResult {
+  Pass
+  Fail
+  /// Failed in a way that blocks the sponsor track, and must be reported rather than hidden.
+  Blocker
+}

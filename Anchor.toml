@@ -1,0 +1,19 @@
+[toolchain]
+anchor_version = "0.31.1"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.devnet]
+stock_arena = "8xYafVKnRmi99cRPQV2TLRHRH2MsfjZtJH4DMy8anHiC"
+
+[programs.localnet]
+stock_arena = "8xYafVKnRmi99cRPQV2TLRHRH2MsfjZtJH4DMy8anHiC"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "npx vitest run tests"

@@ -1,0 +1,2345 @@
+{
+  "address": "8xYafVKnRmi99cRPQV2TLRHRH2MsfjZtJH4DMy8anHiC",
+  "metadata": {
+    "name": "stock_arena",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Stock Arena: two-player PvP market-prediction escrow and settlement"
+  },
+  "instructions": [
+    {
+      "name": "activate_match",
+      "discriminator": [82, 251, 107, 158, 107, 253, 178, 183],
+      "accounts": [
+        {
+          "name": "orchestrator",
+          "docs": [
+            "Only the configured orchestrator may start the clock, because activation fixes the start",
+            "price every later score is measured against."
+          ],
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [99, 111, 110, 102, 105, 103]
+              }
+            ]
+          }
+        },
+        {
+          "name": "arena",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [97, 114, 101, 110, 97]
+              },
+              {
+                "kind": "account",
+                "path": "arena.asset_mint",
+                "account": "Arena"
+              },
+              {
+                "kind": "account",
+                "path": "arena.benchmark_feed_id",
+                "account": "Arena"
+              }
+            ]
+          },
+          "relations": ["match_account"]
+        },
+        {
+          "name": "match_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [109, 97, 116, 99, 104]
+              },
+              {
+                "kind": "account",
+                "path": "match_account.creator",
+                "account": "Match"
+              },
+              {
+                "kind": "account",
+                "path": "match_account.match_nonce",
+                "account": "Match"
+              }
+            ]
+          }
+        },
+        {
+          "name": "price_update",
+          "docs": [
+            "Owned by the Pyth receiver program; the `Account` wrapper enforces that. The worker posts",
+            "this immediately before calling, and may close it afterwards to reclaim rent."
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "cancel_open_match",
+      "discriminator": [192, 131, 177, 134, 19, 118, 55, 9],
+      "accounts": [
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "arena",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [97, 114, 101, 110, 97]
+              },
+              {
+                "kind": "account",
+                "path": "arena.asset_mint",
+                "account": "Arena"
+              },
+              {
+                "kind": "account",
+                "path": "arena.benchmark_feed_id",
+                "account": "Arena"
+              }
+            ]
+          },
+          "relations": ["match_account"]
+        },
+        {
+          "name": "match_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [109, 97, 116, 99, 104]
+              },
+              {
+                "kind": "account",
+                "path": "match_account.creator",
+                "account": "Match"
+              },
+              {
+                "kind": "account",
+                "path": "match_account.match_nonce",
+                "account": "Match"
+              }
+            ]
+          }
+        },
+        {
+          "name": "asset_mint"
+        },
+        {
+          "name": "creator_asset_account",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "match_account"
+              },
+              {
+                "kind": "account",
+                "path": "asset_token_program"
+              },
+              {
+                "kind": "account",
+                "path": "asset_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140, 151, 37, 143, 78, 36, 137, 241, 187, 61, 16, 41, 20, 142, 13, 131, 11, 90, 19,
+                153, 218, 255, 16, 132, 4, 142, 123, 216, 219, 233, 248, 89
+              ]
+            }
+          }
+        },
+        {
+          "name": "asset_token_program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "claim_winner_stake",
+      "discriminator": [170, 37, 219, 25, 237, 88, 56, 237],
+      "accounts": [
+        {
+          "name": "winner",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "arena",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [97, 114, 101, 110, 97]
+              },
+              {
+                "kind": "account",
+                "path": "arena.asset_mint",
+                "account": "Arena"
+              },
+              {
+                "kind": "account",
+                "path": "arena.benchmark_feed_id",
+                "account": "Arena"
+              }
+            ]
+          },
+          "relations": ["match_account"]
+        },
+        {
+          "name": "match_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [109, 97, 116, 99, 104]
+              },
+              {
+                "kind": "account",
+                "path": "match_account.creator",
+                "account": "Match"
+              },
+              {
+                "kind": "account",
+                "path": "match_account.match_nonce",
+                "account": "Match"
+              }
+            ]
+          }
+        },
+        {
+          "name": "asset_mint"
+        },
+        {
+          "name": "winner_asset_account",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "match_account"
+              },
+              {
+                "kind": "account",
+                "path": "asset_token_program"
+              },
+              {
+                "kind": "account",
+                "path": "asset_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140, 151, 37, 143, 78, 36, 137, 241, 187, 61, 16, 41, 20, 142, 13, 131, 11, 90, 19,
+                153, 218, 255, 16, 132, 4, 142, 123, 216, 219, 233, 248, 89
+              ]
+            }
+          }
+        },
+        {
+          "name": "asset_token_program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "create_arena",
+      "discriminator": [174, 236, 45, 61, 197, 215, 149, 169],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "relations": ["config"]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [99, 111, 110, 102, 105, 103]
+              }
+            ]
+          }
+        },
+        {
+          "name": "arena",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [97, 114, 101, 110, 97]
+              },
+              {
+                "kind": "account",
+                "path": "asset_mint"
+              },
+              {
+                "kind": "arg",
+                "path": "params.benchmark_feed_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "asset_mint",
+          "docs": ["Devnet test copy of the PreStocks asset."]
+        },
+        {
+          "name": "quote_mint"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "ArenaParams"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "create_match",
+      "discriminator": [107, 2, 184, 145, 70, 142, 17, 165],
+      "accounts": [
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [99, 111, 110, 102, 105, 103]
+              }
+            ]
+          }
+        },
+        {
+          "name": "arena",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [97, 114, 101, 110, 97]
+              },
+              {
+                "kind": "account",
+                "path": "arena.asset_mint",
+                "account": "Arena"
+              },
+              {
+                "kind": "account",
+                "path": "arena.benchmark_feed_id",
+                "account": "Arena"
+              }
+            ]
+          }
+        },
+        {
+          "name": "match_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [109, 97, 116, 99, 104]
+              },
+              {
+                "kind": "account",
+                "path": "creator"
+              },
+              {
+                "kind": "arg",
+                "path": "match_nonce"
+              }
+            ]
+          }
+        },
+        {
+          "name": "asset_mint"
+        },
+        {
+          "name": "creator_asset_account",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "docs": ["Arena-asset ATA owned by the Match PDA. code.md 7.1."],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "match_account"
+              },
+              {
+                "kind": "account",
+                "path": "asset_token_program"
+              },
+              {
+                "kind": "account",
+                "path": "asset_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140, 151, 37, 143, 78, 36, 137, 241, 187, 61, 16, 41, 20, 142, 13, 131, 11, 90, 19,
+                153, 218, 255, 16, 132, 4, 142, 123, 216, 219, 233, 248, 89
+              ]
+            }
+          }
+        },
+        {
+          "name": "asset_token_program"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "match_nonce",
+          "type": "u64"
+        },
+        {
+          "name": "stake_amount",
+          "type": "u64"
+        },
+        {
+          "name": "strike_amount",
+          "type": "u64"
+        },
+        {
+          "name": "profile_kind",
+          "type": {
+            "defined": {
+              "name": "MatchProfileKind"
+            }
+          }
+        },
+        {
+          "name": "strategy_commitment",
+          "type": {
+            "array": ["u8", 32]
+          }
+        }
+      ]
+    },
+    {
+      "name": "exercise_option",
+      "discriminator": [231, 98, 131, 183, 245, 93, 122, 48],
+      "accounts": [
+        {
+          "name": "winner",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "loser",
+          "docs": [
+            "against the match's recorded loser in the handler. It is never read or written."
+          ]
+        },
+        {
+          "name": "arena",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [97, 114, 101, 110, 97]
+              },
+              {
+                "kind": "account",
+                "path": "arena.asset_mint",
+                "account": "Arena"
+              },
+              {
+                "kind": "account",
+                "path": "arena.benchmark_feed_id",
+                "account": "Arena"
+              }
+            ]
+          },
+          "relations": ["match_account"]
+        },
+        {
+          "name": "match_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [109, 97, 116, 99, 104]
+              },
+              {
+                "kind": "account",
+                "path": "match_account.creator",
+                "account": "Match"
+              },
+              {
+                "kind": "account",
+                "path": "match_account.match_nonce",
+                "account": "Match"
+              }
+            ]
+          }
+        },
+        {
+          "name": "asset_mint"
+        },
+        {
+          "name": "quote_mint"
+        },
+        {
+          "name": "winner_asset_account",
+          "writable": true
+        },
+        {
+          "name": "winner_quote_account",
+          "writable": true
+        },
+        {
+          "name": "loser_quote_account",
+          "docs": [
+            "There is no persistent quote vault: the strike moves straight from winner to loser.",
+            "`init_if_needed` so a loser who has never held the quote asset can still be paid, with the",
+            "winner covering the rent as the party choosing to exercise. `code.md` §7.1."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "loser"
+              },
+              {
+                "kind": "account",
+                "path": "quote_token_program"
+              },
+              {
+                "kind": "account",
+                "path": "quote_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140, 151, 37, 143, 78, 36, 137, 241, 187, 61, 16, 41, 20, 142, 13, 131, 11, 90, 19,
+                153, 218, 255, 16, 132, 4, 142, 123, 216, 219, 233, 248, 89
+              ]
+            }
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "match_account"
+              },
+              {
+                "kind": "account",
+                "path": "asset_token_program"
+              },
+              {
+                "kind": "account",
+                "path": "asset_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140, 151, 37, 143, 78, 36, 137, 241, 187, 61, 16, 41, 20, 142, 13, 131, 11, 90, 19,
+                153, 218, 255, 16, 132, 4, 142, 123, 216, 219, 233, 248, 89
+              ]
+            }
+          }
+        },
+        {
+          "name": "asset_token_program"
+        },
+        {
+          "name": "quote_token_program"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initialize_protocol",
+      "discriminator": [188, 233, 252, 106, 134, 146, 202, 91],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [99, 111, 110, 102, 105, 103]
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "ProtocolParams"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "join_match",
+      "discriminator": [244, 8, 47, 130, 192, 59, 179, 44],
+      "accounts": [
+        {
+          "name": "challenger",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [99, 111, 110, 102, 105, 103]
+              }
+            ]
+          }
+        },
+        {
+          "name": "arena",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [97, 114, 101, 110, 97]
+              },
+              {
+                "kind": "account",
+                "path": "arena.asset_mint",
+                "account": "Arena"
+              },
+              {
+                "kind": "account",
+                "path": "arena.benchmark_feed_id",
+                "account": "Arena"
+              }
+            ]
+          },
+          "relations": ["match_account"]
+        },
+        {
+          "name": "match_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [109, 97, 116, 99, 104]
+              },
+              {
+                "kind": "account",
+                "path": "match_account.creator",
+                "account": "Match"
+              },
+              {
+                "kind": "account",
+                "path": "match_account.match_nonce",
+                "account": "Match"
+              }
+            ]
+          }
+        },
+        {
+          "name": "asset_mint"
+        },
+        {
+          "name": "challenger_asset_account",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "match_account"
+              },
+              {
+                "kind": "account",
+                "path": "asset_token_program"
+              },
+              {
+                "kind": "account",
+                "path": "asset_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140, 151, 37, 143, 78, 36, 137, 241, 187, 61, 16, 41, 20, 142, 13, 131, 11, 90, 19,
+                153, 218, 255, 16, 132, 4, 142, 123, 216, 219, 233, 248, 89
+              ]
+            }
+          }
+        },
+        {
+          "name": "asset_token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "strategy_commitment",
+          "type": {
+            "array": ["u8", 32]
+          }
+        }
+      ]
+    },
+    {
+      "name": "mark_oracle_failure_refundable",
+      "discriminator": [77, 149, 213, 170, 189, 167, 193, 154],
+      "accounts": [
+        {
+          "name": "match_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [109, 97, 116, 99, 104]
+              },
+              {
+                "kind": "account",
+                "path": "match_account.creator",
+                "account": "Match"
+              },
+              {
+                "kind": "account",
+                "path": "match_account.match_nonce",
+                "account": "Match"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "reclaim_after_option_expiry",
+      "discriminator": [137, 54, 49, 109, 19, 121, 55, 183],
+      "accounts": [
+        {
+          "name": "loser",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "arena",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [97, 114, 101, 110, 97]
+              },
+              {
+                "kind": "account",
+                "path": "arena.asset_mint",
+                "account": "Arena"
+              },
+              {
+                "kind": "account",
+                "path": "arena.benchmark_feed_id",
+                "account": "Arena"
+              }
+            ]
+          },
+          "relations": ["match_account"]
+        },
+        {
+          "name": "match_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [109, 97, 116, 99, 104]
+              },
+              {
+                "kind": "account",
+                "path": "match_account.creator",
+                "account": "Match"
+              },
+              {
+                "kind": "account",
+                "path": "match_account.match_nonce",
+                "account": "Match"
+              }
+            ]
+          }
+        },
+        {
+          "name": "asset_mint"
+        },
+        {
+          "name": "loser_asset_account",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "match_account"
+              },
+              {
+                "kind": "account",
+                "path": "asset_token_program"
+              },
+              {
+                "kind": "account",
+                "path": "asset_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140, 151, 37, 143, 78, 36, 137, 241, 187, 61, 16, 41, 20, 142, 13, 131, 11, 90, 19,
+                153, 218, 255, 16, 132, 4, 142, 123, 216, 219, 233, 248, 89
+              ]
+            }
+          }
+        },
+        {
+          "name": "asset_token_program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "refund_failed_match",
+      "discriminator": [93, 31, 246, 180, 243, 53, 16, 127],
+      "accounts": [
+        {
+          "name": "claimant",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "arena",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [97, 114, 101, 110, 97]
+              },
+              {
+                "kind": "account",
+                "path": "arena.asset_mint",
+                "account": "Arena"
+              },
+              {
+                "kind": "account",
+                "path": "arena.benchmark_feed_id",
+                "account": "Arena"
+              }
+            ]
+          },
+          "relations": ["match_account"]
+        },
+        {
+          "name": "match_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [109, 97, 116, 99, 104]
+              },
+              {
+                "kind": "account",
+                "path": "match_account.creator",
+                "account": "Match"
+              },
+              {
+                "kind": "account",
+                "path": "match_account.match_nonce",
+                "account": "Match"
+              }
+            ]
+          }
+        },
+        {
+          "name": "asset_mint"
+        },
+        {
+          "name": "claimant_asset_account",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "match_account"
+              },
+              {
+                "kind": "account",
+                "path": "asset_token_program"
+              },
+              {
+                "kind": "account",
+                "path": "asset_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140, 151, 37, 143, 78, 36, 137, 241, 187, 61, 16, 41, 20, 142, 13, 131, 11, 90, 19,
+                153, 218, 255, 16, 132, 4, 142, 123, 216, 219, 233, 248, 89
+              ]
+            }
+          }
+        },
+        {
+          "name": "asset_token_program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "refund_tie",
+      "discriminator": [193, 98, 191, 232, 140, 84, 155, 141],
+      "accounts": [
+        {
+          "name": "claimant",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "arena",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [97, 114, 101, 110, 97]
+              },
+              {
+                "kind": "account",
+                "path": "arena.asset_mint",
+                "account": "Arena"
+              },
+              {
+                "kind": "account",
+                "path": "arena.benchmark_feed_id",
+                "account": "Arena"
+              }
+            ]
+          },
+          "relations": ["match_account"]
+        },
+        {
+          "name": "match_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [109, 97, 116, 99, 104]
+              },
+              {
+                "kind": "account",
+                "path": "match_account.creator",
+                "account": "Match"
+              },
+              {
+                "kind": "account",
+                "path": "match_account.match_nonce",
+                "account": "Match"
+              }
+            ]
+          }
+        },
+        {
+          "name": "asset_mint"
+        },
+        {
+          "name": "claimant_asset_account",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "match_account"
+              },
+              {
+                "kind": "account",
+                "path": "asset_token_program"
+              },
+              {
+                "kind": "account",
+                "path": "asset_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140, 151, 37, 143, 78, 36, 137, 241, 187, 61, 16, 41, 20, 142, 13, 131, 11, 90, 19,
+                153, 218, 255, 16, 132, 4, 142, 123, 216, 219, 233, 248, 89
+              ]
+            }
+          }
+        },
+        {
+          "name": "asset_token_program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "set_paused",
+      "discriminator": [91, 60, 125, 192, 176, 225, 166, 218],
+      "accounts": [
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": ["config"]
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [99, 111, 110, 102, 105, 103]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "paused",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "settle_match",
+      "discriminator": [71, 124, 117, 96, 191, 217, 116, 24],
+      "accounts": [
+        {
+          "name": "arena",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [97, 114, 101, 110, 97]
+              },
+              {
+                "kind": "account",
+                "path": "arena.asset_mint",
+                "account": "Arena"
+              },
+              {
+                "kind": "account",
+                "path": "arena.benchmark_feed_id",
+                "account": "Arena"
+              }
+            ]
+          },
+          "relations": ["match_account"]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [99, 111, 110, 102, 105, 103]
+              }
+            ]
+          }
+        },
+        {
+          "name": "match_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [109, 97, 116, 99, 104]
+              },
+              {
+                "kind": "account",
+                "path": "match_account.creator",
+                "account": "Match"
+              },
+              {
+                "kind": "account",
+                "path": "match_account.match_nonce",
+                "account": "Match"
+              }
+            ]
+          }
+        },
+        {
+          "name": "price_update"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "submit_round_predictions",
+      "discriminator": [12, 6, 135, 30, 185, 88, 248, 11],
+      "accounts": [
+        {
+          "name": "orchestrator",
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [99, 111, 110, 102, 105, 103]
+              }
+            ]
+          }
+        },
+        {
+          "name": "match_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [109, 97, 116, 99, 104]
+              },
+              {
+                "kind": "account",
+                "path": "match_account.creator",
+                "account": "Match"
+              },
+              {
+                "kind": "account",
+                "path": "match_account.match_nonce",
+                "account": "Match"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "round",
+          "type": "u8"
+        },
+        {
+          "name": "creator_input",
+          "type": {
+            "defined": {
+              "name": "PredictionInput"
+            }
+          }
+        },
+        {
+          "name": "challenger_input",
+          "type": {
+            "defined": {
+              "name": "PredictionInput"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "update_protocol_config",
+      "discriminator": [197, 97, 123, 54, 221, 168, 11, 135],
+      "accounts": [
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": ["config"]
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [99, 111, 110, 102, 105, 103]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "ProtocolParams"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Arena",
+      "discriminator": [243, 215, 44, 44, 231, 211, 232, 168]
+    },
+    {
+      "name": "Match",
+      "discriminator": [236, 63, 169, 38, 15, 56, 196, 162]
+    },
+    {
+      "name": "PriceUpdateV2",
+      "discriminator": [34, 241, 35, 99, 157, 126, 244, 205]
+    },
+    {
+      "name": "ProtocolConfig",
+      "discriminator": [207, 91, 250, 28, 152, 179, 215, 209]
+    }
+  ],
+  "events": [
+    {
+      "name": "MatchActivated",
+      "discriminator": [97, 115, 184, 205, 137, 185, 66, 125]
+    },
+    {
+      "name": "MatchSettled",
+      "discriminator": [243, 201, 134, 151, 193, 131, 223, 150]
+    },
+    {
+      "name": "OptionExercised",
+      "discriminator": [34, 100, 89, 14, 247, 159, 22, 97]
+    },
+    {
+      "name": "RoundSubmitted",
+      "discriminator": [20, 14, 129, 197, 148, 10, 222, 118]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "ProtocolPaused",
+      "msg": "Protocol is paused; new risk cannot be created."
+    },
+    {
+      "code": 6001,
+      "name": "ArenaInactive",
+      "msg": "Arena is not active."
+    },
+    {
+      "code": 6002,
+      "name": "NotAdmin",
+      "msg": "Caller is not the protocol admin."
+    },
+    {
+      "code": 6003,
+      "name": "NotOrchestrator",
+      "msg": "Caller is not the configured orchestrator."
+    },
+    {
+      "code": 6004,
+      "name": "SelfChallenge",
+      "msg": "A player cannot challenge themselves."
+    },
+    {
+      "code": 6005,
+      "name": "ZeroAmount",
+      "msg": "Amount must be greater than zero."
+    },
+    {
+      "code": 6006,
+      "name": "DurationOutOfBounds",
+      "msg": "Match duration is outside the configured bounds."
+    },
+    {
+      "code": 6007,
+      "name": "InvalidMatchState",
+      "msg": "Match is not in the required state for this action."
+    },
+    {
+      "code": 6008,
+      "name": "JoinWindowClosed",
+      "msg": "The join window for this match has closed."
+    },
+    {
+      "code": 6009,
+      "name": "ActivationWindowClosed",
+      "msg": "The activation window for this match has closed."
+    },
+    {
+      "code": 6010,
+      "name": "ActivationWindowStillOpen",
+      "msg": "The activation window is still open; the match is not refundable yet."
+    },
+    {
+      "code": 6011,
+      "name": "MathOverflow",
+      "msg": "Arithmetic overflow."
+    },
+    {
+      "code": 6012,
+      "name": "InvalidPrice",
+      "msg": "Price is zero, negative, or otherwise unusable."
+    },
+    {
+      "code": 6013,
+      "name": "IncompatibleExponent",
+      "msg": "Feed exponent cannot be converted to the Arena exponent without losing precision."
+    },
+    {
+      "code": 6014,
+      "name": "AccountMismatch",
+      "msg": "Account does not belong to this match or arena."
+    },
+    {
+      "code": 6015,
+      "name": "MintMismatch",
+      "msg": "Token mint does not match the configured mint."
+    },
+    {
+      "code": 6016,
+      "name": "DepositMismatch",
+      "msg": "Deposit accounting does not match the expected stake."
+    },
+    {
+      "code": 6017,
+      "name": "AlreadySettled",
+      "msg": "This action has already been taken and cannot be replayed."
+    },
+    {
+      "code": 6018,
+      "name": "UnverifiedPrice",
+      "msg": "Price update is not fully verified."
+    },
+    {
+      "code": 6019,
+      "name": "FeedMismatch",
+      "msg": "Price update is for a different feed than this Arena's benchmark."
+    },
+    {
+      "code": 6020,
+      "name": "ConfidenceTooHigh",
+      "msg": "Price confidence exceeds the configured maximum ratio."
+    },
+    {
+      "code": 6021,
+      "name": "StalePrice",
+      "msg": "Price update is older than the configured maximum age."
+    },
+    {
+      "code": 6022,
+      "name": "InvalidRound",
+      "msg": "Round index is outside 0..3."
+    },
+    {
+      "code": 6023,
+      "name": "RoundWindowClosed",
+      "msg": "This round is not open for submission yet, or its window has closed."
+    },
+    {
+      "code": 6024,
+      "name": "RoundAlreadySubmitted",
+      "msg": "This round has already been submitted."
+    },
+    {
+      "code": 6025,
+      "name": "InvalidPredictionOutcome",
+      "msg": "A non-valid prediction outcome must carry a zero price, and Unsubmitted may not be submitted."
+    },
+    {
+      "code": 6026,
+      "name": "TargetNotReached",
+      "msg": "The match has not reached its target end time."
+    },
+    {
+      "code": 6027,
+      "name": "SettlementWindowMissed",
+      "msg": "No price update published inside the settlement window."
+    },
+    {
+      "code": 6028,
+      "name": "SettlementDeadlineNotPassed",
+      "msg": "The settlement deadline has not passed yet."
+    },
+    {
+      "code": 6029,
+      "name": "NotWinner",
+      "msg": "Caller is not the winner of this match."
+    },
+    {
+      "code": 6030,
+      "name": "OptionWindowClosed",
+      "msg": "The option exercise window has closed."
+    },
+    {
+      "code": 6031,
+      "name": "OptionWindowStillOpen",
+      "msg": "The option exercise window is still open."
+    }
+  ],
+  "types": [
+    {
+      "name": "Arena",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "asset_mint",
+            "docs": [
+              "Devnet test copy of the PreStocks asset. Never the real mainnet mint. `code.md` §2."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "asset_token_program",
+            "type": "pubkey"
+          },
+          {
+            "name": "quote_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "quote_token_program",
+            "type": "pubkey"
+          },
+          {
+            "name": "benchmark_feed_id",
+            "docs": [
+              "Pyth 32-byte Core feed ID. Never a Terminal/Lazer identifier such as 1314 or 922."
+            ],
+            "type": {
+              "array": ["u8", 32]
+            }
+          },
+          {
+            "name": "benchmark_exponent",
+            "type": "i32"
+          },
+          {
+            "name": "standard_profile",
+            "type": {
+              "defined": {
+                "name": "TimingProfile"
+              }
+            }
+          },
+          {
+            "name": "demo_profile",
+            "type": {
+              "defined": {
+                "name": "TimingProfile"
+              }
+            }
+          },
+          {
+            "name": "round_weights_bps",
+            "type": {
+              "array": ["u16", 3]
+            }
+          },
+          {
+            "name": "max_price_age_seconds",
+            "type": "u64"
+          },
+          {
+            "name": "max_confidence_bps",
+            "type": "u64"
+          },
+          {
+            "name": "active",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ArenaParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "benchmark_feed_id",
+            "docs": [
+              "Pyth 32-byte Core feed ID. A Terminal/Lazer identifier (1314, 922) is not a Core ID and",
+              "must never be stored here. `code.md` §3.2."
+            ],
+            "type": {
+              "array": ["u8", 32]
+            }
+          },
+          {
+            "name": "benchmark_exponent",
+            "type": "i32"
+          },
+          {
+            "name": "standard_profile",
+            "type": {
+              "defined": {
+                "name": "TimingProfile"
+              }
+            }
+          },
+          {
+            "name": "demo_profile",
+            "type": {
+              "defined": {
+                "name": "TimingProfile"
+              }
+            }
+          },
+          {
+            "name": "max_price_age_seconds",
+            "type": "u64"
+          },
+          {
+            "name": "max_confidence_bps",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Match",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "arena",
+            "type": "pubkey"
+          },
+          {
+            "name": "creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "challenger",
+            "docs": [
+              "Pubkey::default() until join_match. Compare against creator to reject a self-challenge."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "match_nonce",
+            "type": "u64"
+          },
+          {
+            "name": "stake_amount",
+            "docs": ["Exact Arena-asset amount each player escrows."],
+            "type": "u64"
+          },
+          {
+            "name": "strike_amount",
+            "docs": [
+              "Exact quote-token amount the winner pays the loser to exercise. Binding as signed."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "profile_kind",
+            "type": {
+              "defined": {
+                "name": "MatchProfileKind"
+              }
+            }
+          },
+          {
+            "name": "max_price_age_seconds",
+            "docs": [
+              "Effective oracle limits fixed at creation; protocol updates affect new matches only."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "max_confidence_bps",
+            "type": "u64"
+          },
+          {
+            "name": "creator_strategy_commitment",
+            "type": {
+              "array": ["u8", 32]
+            }
+          },
+          {
+            "name": "challenger_strategy_commitment",
+            "type": {
+              "array": ["u8", 32]
+            }
+          },
+          {
+            "name": "created_ts",
+            "type": "i64"
+          },
+          {
+            "name": "join_deadline_ts",
+            "type": "i64"
+          },
+          {
+            "name": "activation_deadline_ts",
+            "type": "i64"
+          },
+          {
+            "name": "start_ts",
+            "type": "i64"
+          },
+          {
+            "name": "round_due_ts",
+            "type": {
+              "array": ["i64", 3]
+            }
+          },
+          {
+            "name": "target_end_ts",
+            "type": "i64"
+          },
+          {
+            "name": "settlement_deadline_ts",
+            "type": "i64"
+          },
+          {
+            "name": "option_expiry_ts",
+            "type": "i64"
+          },
+          {
+            "name": "start_observation",
+            "type": {
+              "defined": {
+                "name": "PriceObservation"
+              }
+            }
+          },
+          {
+            "name": "final_observation",
+            "type": {
+              "defined": {
+                "name": "PriceObservation"
+              }
+            }
+          },
+          {
+            "name": "predictions",
+            "docs": ["[round][player_index]; player_index 0 = creator, 1 = challenger."],
+            "type": {
+              "array": [
+                {
+                  "array": [
+                    {
+                      "defined": {
+                        "name": "PredictionRecord"
+                      }
+                    },
+                    2
+                  ]
+                },
+                3
+              ]
+            }
+          },
+          {
+            "name": "submitted_rounds",
+            "docs": ["Bit i set once round i has been submitted. Enforces single-use per round."],
+            "type": "u8"
+          },
+          {
+            "name": "creator_score",
+            "type": "u128"
+          },
+          {
+            "name": "challenger_score",
+            "type": "u128"
+          },
+          {
+            "name": "winner",
+            "type": {
+              "defined": {
+                "name": "Winner"
+              }
+            }
+          },
+          {
+            "name": "state",
+            "type": {
+              "defined": {
+                "name": "MatchState"
+              }
+            }
+          },
+          {
+            "name": "creator_deposit",
+            "docs": [
+              "Internal deposit accounting. Entitlements derive from these, never from raw vault",
+              "balance, so an unsolicited transfer into the vault grants nobody anything. `code.md` §7.1."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "challenger_deposit",
+            "type": "u64"
+          },
+          {
+            "name": "winner_stake_claimed",
+            "type": "bool"
+          },
+          {
+            "name": "creator_refunded",
+            "type": "bool"
+          },
+          {
+            "name": "challenger_refunded",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MatchActivated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "match_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "start_price",
+            "type": "i64"
+          },
+          {
+            "name": "start_publish_time",
+            "type": "i64"
+          },
+          {
+            "name": "target_end_ts",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MatchProfileKind",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Standard"
+          },
+          {
+            "name": "Demo"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MatchSettled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "match_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "final_price",
+            "type": "i64"
+          },
+          {
+            "name": "final_publish_time",
+            "type": "i64"
+          },
+          {
+            "name": "creator_score",
+            "type": "u128"
+          },
+          {
+            "name": "challenger_score",
+            "type": "u128"
+          },
+          {
+            "name": "winner",
+            "type": {
+              "defined": {
+                "name": "Winner"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "MatchState",
+      "docs": ["`code.md` §7.2."],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Open"
+          },
+          {
+            "name": "Ready"
+          },
+          {
+            "name": "Active"
+          },
+          {
+            "name": "AwaitingSettlement"
+          },
+          {
+            "name": "WinnerOptionOpen"
+          },
+          {
+            "name": "TieRefundable"
+          },
+          {
+            "name": "FailureRefundable"
+          },
+          {
+            "name": "OptionExercised"
+          },
+          {
+            "name": "OptionExpired"
+          },
+          {
+            "name": "Cancelled"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OptionExercised",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "match_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "winner",
+            "type": "pubkey"
+          },
+          {
+            "name": "loser",
+            "type": "pubkey"
+          },
+          {
+            "name": "asset_amount",
+            "type": "u64"
+          },
+          {
+            "name": "strike_amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PredictionInput",
+      "docs": [
+        "One player's prediction for one round, as the orchestrator submits it. `code.md` §5.5.",
+        "",
+        "Distinct from `PredictionRecord` because `Unsubmitted` is a *stored* state the program reaches",
+        "on its own when a round is never submitted, and must never be something the orchestrator can",
+        "claim happened."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "outcome",
+            "type": {
+              "defined": {
+                "name": "PredictionOutcome"
+              }
+            }
+          },
+          {
+            "name": "predicted_price",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PredictionOutcome",
+      "docs": [
+        "Why a prediction is or is not usable. A non-Valid outcome carries a zero price and receives",
+        "MAX_ROUND_ERROR_BPS. `code.md` §5.5."
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Unsubmitted"
+          },
+          {
+            "name": "Valid"
+          },
+          {
+            "name": "Timeout"
+          },
+          {
+            "name": "ApiError"
+          },
+          {
+            "name": "Malformed"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PredictionRecord",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "outcome",
+            "type": {
+              "defined": {
+                "name": "PredictionOutcome"
+              }
+            }
+          },
+          {
+            "name": "predicted_price",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PriceFeedMessage",
+      "repr": {
+        "kind": "c"
+      },
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "feed_id",
+            "docs": [
+              "`FeedId` but avoid the type alias because of compatibility issues with Anchor's `idl-build` feature."
+            ],
+            "type": {
+              "array": ["u8", 32]
+            }
+          },
+          {
+            "name": "price",
+            "type": "i64"
+          },
+          {
+            "name": "conf",
+            "type": "u64"
+          },
+          {
+            "name": "exponent",
+            "type": "i32"
+          },
+          {
+            "name": "publish_time",
+            "docs": ["The timestamp of this price update in seconds"],
+            "type": "i64"
+          },
+          {
+            "name": "prev_publish_time",
+            "docs": [
+              "The timestamp of the previous price update. This field is intended to allow users to",
+              "identify the single unique price update for any moment in time:",
+              "for any time t, the unique update is the one such that prev_publish_time < t <= publish_time.",
+              "",
+              "Note that there may not be such an update while we are migrating to the new message-sending logic,",
+              "as some price updates on pythnet may not be sent to other chains (because the message-sending",
+              "logic may not have triggered). We can solve this problem by making the message-sending mandatory",
+              "(which we can do once publishers have migrated over).",
+              "",
+              "Additionally, this field may be equal to publish_time if the message is sent on a slot where",
+              "where the aggregation was unsuccesful. This problem will go away once all publishers have",
+              "migrated over to a recent version of pyth-agent."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "ema_price",
+            "type": "i64"
+          },
+          {
+            "name": "ema_conf",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PriceObservation",
+      "docs": ["A Pyth observation recorded on-chain after validation. `code.md` §3.2."],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "price",
+            "type": "i64"
+          },
+          {
+            "name": "exponent",
+            "type": "i32"
+          },
+          {
+            "name": "confidence",
+            "type": "u64"
+          },
+          {
+            "name": "publish_time",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PriceUpdateV2",
+      "docs": [
+        "A price update account. This account is used by the Pyth Receiver program to store a verified price update from a Pyth price feed.",
+        "It contains:",
+        "- `write_authority`: The write authority for this account. This authority can close this account to reclaim rent or update the account to contain a different price update.",
+        "- `verification_level`: The [`VerificationLevel`] of this price update. This represents how many Wormhole guardian signatures have been verified for this price update.",
+        "- `price_message`: The actual price update.",
+        "- `posted_slot`: The slot at which this price update was posted."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "write_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "verification_level",
+            "type": {
+              "defined": {
+                "name": "VerificationLevel"
+              }
+            }
+          },
+          {
+            "name": "price_message",
+            "type": {
+              "defined": {
+                "name": "PriceFeedMessage"
+              }
+            }
+          },
+          {
+            "name": "posted_slot",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ProtocolConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "orchestrator",
+            "type": "pubkey"
+          },
+          {
+            "name": "paused",
+            "docs": [
+              "Blocks match creation and activation only. Never blocks a refund, claim, exercise or",
+              "expiry reclaim. `code.md` §7.4."
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "min_duration_seconds",
+            "type": "i64"
+          },
+          {
+            "name": "max_duration_seconds",
+            "type": "i64"
+          },
+          {
+            "name": "max_price_age_seconds",
+            "type": "u64"
+          },
+          {
+            "name": "max_confidence_bps",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ProtocolParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "orchestrator",
+            "type": "pubkey"
+          },
+          {
+            "name": "min_duration_seconds",
+            "type": "i64"
+          },
+          {
+            "name": "max_duration_seconds",
+            "type": "i64"
+          },
+          {
+            "name": "max_price_age_seconds",
+            "type": "u64"
+          },
+          {
+            "name": "max_confidence_bps",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RoundSubmitted",
+      "docs": [
+        "Both players' outcomes for a round in one event, because they are submitted in one",
+        "instruction: an indexer must never be able to observe one player's prediction before the",
+        "other's. `code.md` §6."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "match_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "round",
+            "type": "u8"
+          },
+          {
+            "name": "creator_outcome",
+            "type": {
+              "defined": {
+                "name": "PredictionOutcome"
+              }
+            }
+          },
+          {
+            "name": "creator_predicted_price",
+            "type": "i64"
+          },
+          {
+            "name": "challenger_outcome",
+            "type": {
+              "defined": {
+                "name": "PredictionOutcome"
+              }
+            }
+          },
+          {
+            "name": "challenger_predicted_price",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TimingProfile",
+      "docs": ["Timing for one match profile, in seconds relative to activation. `code.md` §5.1."],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "duration_seconds",
+            "type": "i64"
+          },
+          {
+            "name": "round_due_offsets",
+            "type": {
+              "array": ["i64", 3]
+            }
+          },
+          {
+            "name": "settlement_grace_seconds",
+            "type": "i64"
+          },
+          {
+            "name": "exercise_window_seconds",
+            "type": "i64"
+          },
+          {
+            "name": "join_window_seconds",
+            "docs": [
+              "How long an Open match stays joinable, and how long a Ready match stays activatable.",
+              "These live here rather than as constants so every deadline is Arena-configured and can",
+              "therefore be driven to expiry in a test. `code.md` §7.1 puts timing profiles on the Arena."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "activation_window_seconds",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "VerificationLevel",
+      "docs": [
+        "Pyth price updates are bridged to all blockchains via Wormhole.",
+        "Using the price updates on another chain requires verifying the signatures of the Wormhole guardians.",
+        "The usual process is to check the signatures for two thirds of the total number of guardians, but this can be cumbersome on Solana because of the transaction size limits,",
+        "so we also allow for partial verification.",
+        "",
+        "This enum represents how much a price update has been verified:",
+        "- If `Full`, we have verified the signatures for two thirds of the current guardians.",
+        "- If `Partial`, only `num_signatures` guardian signatures have been checked.",
+        "",
+        "# Warning",
+        "Using partially verified price updates is dangerous, as it lowers the threshold of guardians that need to collude to produce a malicious price update."
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Partial",
+            "fields": [
+              {
+                "name": "num_signatures",
+                "type": "u8"
+              }
+            ]
+          },
+          {
+            "name": "Full"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Winner",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Unset"
+          },
+          {
+            "name": "Creator"
+          },
+          {
+            "name": "Challenger"
+          },
+          {
+            "name": "Tie"
+          }
+        ]
+      }
+    }
+  ]
+}

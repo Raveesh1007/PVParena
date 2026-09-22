@@ -1,0 +1,19 @@
+node_modules/
+target/
+dist/
+.next/
+.anchor/
+*.tsbuildinfo
+*.log
+test-ledger/
+
+# Secrets. Broad match, then re-admit the committed template.
+.env*
+!.env.example
+**/*keypair*.json
+target/verify-logs/
+
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

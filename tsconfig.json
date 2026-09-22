@@ -1,0 +1,17 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "./packages/idl"
+    },
+    {
+      "path": "./packages/shared"
+    },
+    {
+      "path": "./packages/integrations"
+    },
+    {
+      "path": "./apps/worker"
+    }
+  ]
+}

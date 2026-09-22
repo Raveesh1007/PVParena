@@ -1,0 +1,25 @@
+[package]
+name = "stock_arena"
+version = "0.1.0"
+description = "Stock Arena: two-player PvP market-prediction escrow and settlement"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "stock_arena"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+
+[dependencies]
+# `init-if-needed` is required by exactly one account: the loser's quote token
+# account in `exercise_option`, which may not exist yet and is created with the
+# winner paying rent. Every other account in this program is `init` or pre-existing.
+anchor-lang = { version = "=0.31.1", features = ["init-if-needed"] }
+anchor-spl = "=0.31.1"
+pyth-solana-receiver-sdk = "0.6.1"

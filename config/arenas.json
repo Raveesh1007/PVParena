@@ -1,0 +1,37 @@
+{
+  "$comment": [
+    "Arena registry. One entry per PreStocks token that gets an Arena.",
+    "mainnetMint and devnetTestMint are left empty on purpose: both must be resolved and verified",
+    "at setup time and written back by the setup scripts. Never hand-write a mint here.",
+    "benchmark.coreFeedId is the 32-byte Pyth Core ID; a Terminal/Lazer id such as 1314 or 922 is",
+    "NOT a Core id and must never appear. Per-Arena benchmarks are supported by the program; the",
+    "current plan is the same stock benchmark for every Arena because most of these companies have",
+    "no obvious public comparable.",
+    "Duels are same-token only: both players stake the same Arena asset. A cross-token duel would",
+    "need the program to trust a dollar price for each token, and PreStocks markPrice is an",
+    "off-chain API value, which no program decision may ever depend on."
+  ],
+  "benchmark": {
+    "symbol": "",
+    "coreFeedId": "",
+    "exponent": -5,
+    "source": "",
+    "dateResolved": ""
+  },
+  "arenas": [
+    {
+      "symbol": "OPENAI",
+      "enabled": true,
+      "note": "Built end to end first, per the schedule.",
+      "mainnetMint": "",
+      "devnetTestMint": ""
+    },
+    { "symbol": "ANDURIL", "enabled": false, "mainnetMint": "", "devnetTestMint": "" },
+    { "symbol": "ANTHROPIC", "enabled": false, "mainnetMint": "", "devnetTestMint": "" },
+    { "symbol": "FIGURE_AI", "enabled": false, "mainnetMint": "", "devnetTestMint": "" },
+    { "symbol": "KALSHI", "enabled": false, "mainnetMint": "", "devnetTestMint": "" },
+    { "symbol": "NEURALINK", "enabled": false, "mainnetMint": "", "devnetTestMint": "" },
+    { "symbol": "POLYMARKET", "enabled": false, "mainnetMint": "", "devnetTestMint": "" },
+    { "symbol": "SPACEX", "enabled": false, "mainnetMint": "", "devnetTestMint": "" }
+  ]
+}

@@ -1,0 +1,8 @@
+target/
+dist/
+node_modules/
+package-lock.json
+
+# Installed third-party skills are vendored as published; reformatting them would make every
+# upgrade a diff against our own changes.
+.agents/

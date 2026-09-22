@@ -1,0 +1,9 @@
+{
+  "name": "jito-ts",
+  "version": "3.0.1",
+  "description": "Local stub. See README.md.",
+  "type": "module",
+  "exports": {
+    "./dist/sdk/block-engine/types": "./types.js"
+  }
+}

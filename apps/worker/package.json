@@ -1,0 +1,26 @@
+{
+  "name": "@stock-arena/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=cjs --outfile=dist/worker.cjs --external:@prisma/client --sourcemap",
+    "start": "node dist/worker.cjs",
+    "dev": "npm run build && npm start"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "0.31.1",
+    "@prisma/client": "^6.16.2",
+    "@pythnetwork/pyth-solana-receiver": "^0.16.0",
+    "@solana/spl-token": "0.4.14",
+    "@solana/web3.js": "^1.98.0",
+    "@stock-arena/idl": "*",
+    "@stock-arena/integrations": "*",
+    "@stock-arena/shared": "*",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}
