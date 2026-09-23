@@ -181,7 +181,7 @@ async function submitRound(
   const turns = await runRoundTurns(
     db,
     config,
-    ctx.connection,
+    ctx.mainnet,
     {
       matchPda: pda,
       round,

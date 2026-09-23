@@ -45,10 +45,9 @@ const createResponseSchema = z.union([
   agentSchema,
 ]);
 
+// Documented at clawpump.tech/developers (checked 2026-09-23): the reply is `content`.
 const chatResponseSchema = z.object({
-  // The provider has used both shapes; accept either rather than guessing.
-  response: z.string().optional(),
-  message: z.string().optional(),
+  content: z.string(),
   meta: z.object({ requestId: z.string().optional() }).optional(),
 });
 
@@ -110,6 +109,15 @@ export async function createBattleAgent(
       'clawpump',
     );
   }
+  // Agents are created `stopped`, and chat with a stopped agent fails with HTTP 500 after ~60 s.
+  await fetchJson({
+    provider: 'clawpump',
+    url: `${options.baseUrl.replace(/\/$/, '')}/agents/${encodeURIComponent(agent.id)}/start`,
+    method: 'POST',
+    schema: z.object({ status: z.literal('running') }),
+    headers: authHeaders(options.apiKey),
+    timeoutMs: options.timeoutMs ?? 60_000,
+  });
   return { agentId: agent.id, agentWallet, model: agent.model ?? options.model };
 }
 
@@ -151,7 +159,9 @@ export async function requestPrediction(
       method: 'POST',
       schema: chatResponseSchema,
       headers: authHeaders(options.apiKey),
-      body: { message: options.prompt },
+      // Documented override. On 2026-09-23 the provider still answered some calls with a different
+      // model; the response's `model` is what actually ran.
+      body: { message: options.prompt, model: options.model, temperature: AGENT_TEMPERATURE },
       timeoutMs: options.timeoutMs ?? 120_000,
       // Zero. Chat is non-idempotent and costs credit; a failure is a game outcome.
       retries: 0,
@@ -165,13 +175,47 @@ export async function requestPrediction(
     };
   }
 
-  const text = raw.response ?? raw.message ?? '';
-  const requestId = raw.meta?.requestId ?? null;
+  const text = raw.content.trim() ? raw.content : ((await recoverReply(options)) ?? raw.content);
   return {
     parsed: parseAgentResponse(text, options.context),
     sanitizedResponse: summarize(text, 4_000),
-    requestId,
+    requestId: raw.meta?.requestId ?? null,
   };
+}
+
+const messagesSchema = z.object({
+  messages: z.array(
+    z.object({ role: z.string(), content: z.string().nullable(), createdAt: z.string() }),
+  ),
+});
+
+/**
+ * The chat endpoint has returned an empty `content` while the stored history held the model's
+ * reply (2026-09-23). Reading history is not a retry: nothing is re-asked and no credit is spent.
+ * The reply is the assistant message that follows this exact prompt, never merely the latest one,
+ * because the same player's agent may be answering another match concurrently.
+ */
+async function recoverReply(
+  options: ClawPumpOptions & { agentId: string; prompt: string },
+): Promise<string | undefined> {
+  try {
+    const { messages } = await fetchJson({
+      provider: 'clawpump',
+      url: `${options.baseUrl.replace(/\/$/, '')}/agents/${encodeURIComponent(options.agentId)}/messages?limit=20`,
+      schema: messagesSchema,
+      headers: authHeaders(options.apiKey),
+      timeoutMs: 15_000,
+      retries: 2,
+    });
+    const ordered = [...messages].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+    const asked = ordered.findLastIndex(
+      (m) => m.role === 'user' && m.content?.trim() === options.prompt.trim(),
+    );
+    const reply = asked === -1 ? undefined : ordered[asked + 1];
+    return reply?.role === 'assistant' ? (reply.content ?? undefined) : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**

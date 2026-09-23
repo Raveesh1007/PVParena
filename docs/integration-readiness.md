@@ -16,11 +16,56 @@ Last updated: 2026-09-23
 | 6   | Official 32-byte Core feed ID resolved for the chosen symbol                  | **VERIFIED** | TSLA, 23 Sep 2026 — see "Benchmark decision" below                             |
 | 7   | Authenticated Hermes fetch succeeds at `pyth.dourolabs.app/hermes`            | **VERIFIED** | TSLA, 23 Sep 2026 08:14 UTC — see below                                        |
 | 8   | Update posted to and read from Solana devnet                                  | **VERIFIED** | TSLA, 23 Sep 2026 08:48 UTC — see "Devnet post/read" below                     |
-| 9   | `cpk_` key, verified paid model, sufficient credit                            | UNVERIFIED   |                                                                                |
-| 10  | Empty `monitor-exit` battle agent completes one strict-JSON call, no tool use | UNVERIFIED   |                                                                                |
+| 9   | `cpk_` key, verified paid model, sufficient credit                            | **VERIFIED** | 23 Sep 2026: `moonshotai/kimi-k2.5`, $1.008299 credit — see "ClawPump billing" |
+| 10  | Empty `monitor-exit` battle agent completes one strict-JSON call, no tool use | **BLOCKED**  | 23 Sep 2026: model not honoured, reply empty once — see "ClawPump gate 10"     |
 | 11  | ClawPump answered the Pump.fun-versus-Meteora question                        | **ANSWERED** | Discord, Tomi204, 20–22 Sep 2026 — see "ClawPump launch route" below           |
 | 12  | `/pump-pairs` lists an eligible stock mint; launch preflight recorded unpaid  | UNVERIFIED   |                                                                                |
 | 13  | Devnet SOL collected for both demo wallets and the deploy wallet              | **VERIFIED** | 23 Sep 2026: deploy 20.9, player A 5.66, player B 2.00 SOL                     |
+
+## ClawPump billing (verified 2026-09-23, MCP + mainnet RPC)
+
+Credit is **account-level**: `get_account_status` reports `credit_balance` and one account
+`deposit_wallet` (`zqUkbZcX87dCzAycRFTMuUKEhbMVKey5ysNALo2AG4S`), and `sync_billing` takes no agent
+ID. Agents are paid from that pool, so battle-agent wallets can stay empty.
+
+Deposits are **USDC to the account deposit wallet**, not SOL to an agent wallet. 0.001 SOL sent to
+Agent1's wallet (`3iVAce…xkrJ`) was ignored by `sync_billing` (`deposits_processed: 0`) and is still
+there. Model catalog: `moonshotai/kimi-k2.5` at $0.585 / $2.925 per million input/output tokens.
+The free tier (10 requests/day) uses `:free` models only and does not satisfy the paid-model rule.
+
+The user deposited mainnet USDC (`EPjFWdd5…Dt1v`); the deposit wallet's USDC account
+`6DmPprCLMsa2FR8CVnwCpamAr4hYVW4aQ3LVETqbzXbr` held 1.039483 at finalized commitment. `sync_billing`
+at 13:29 UTC returned `deposits_processed: 1`, `credits_added: 1.008299`, and Agent1's
+`get_balance` then showed the same 1.008299, confirming one pool shared by all agents. The USDC
+stayed in the deposit wallet after the sync.
+
+## ClawPump gate 10 (attempted 2026-09-23)
+
+`npm run test:integration:clawpump` (`scripts/gate-clawpump.ts`) creates one agent through the real
+adapter, checks its wallet on **mainnet** (where agent wallets live), sends the real worker prompt
+with a live Hermes TSLA price, and checks the wallet again. Every wallet check read 0 lamports and
+no token accounts.
+
+| Call                                    | Agent       | Result                                                                                                                      |
+| --------------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Gate, agent never started               | `ee16d48e…` | HTTP 500 after 61 s; no message, usage or cost recorded. Agents are created `stopped`; the adapter now calls `POST /start`. |
+| Gate, after `/start`                    | `51d9bdad…` | 16.8 s, `requestId 6f58c251…`. Dashboard history: `kimi-k2.5` returned the exact strict JSON. REST `content` was **empty**. |
+| Diagnostic `{"ok":true}`                | `51d9bdad…` | `content` correct, but answered by **`openai/gpt-5.4-mini`**, 4,068 prompt tokens, `cost: 0` in the body.                   |
+| Diagnostic with `model` + `temperature` | `51d9bdad…` | Still `openai/gpt-5.4-mini`. The documented per-call override was not honoured.                                             |
+
+Account credit went 1.008299 → 0.99798 ($0.0103) across the three billed calls. After the first two,
+`get_usage` showed $0.0054 for 2 requests, so the `gpt-5.4-mini` call was billed although its body
+said `cost: 0`.
+
+Workaround for the empty `content`: the adapter reads `GET /agents/{id}/messages` (shape checked
+live: `messages[].role/content/model/createdAt`, oldest first) and takes the assistant message that
+follows the exact prompt it sent. No second chat is issued.
+
+Blockers to raise with ClawPump: (1) why a paid, pinned model is replaced by `gpt-5.4-mini`;
+(2) why the REST `content` was empty when the stored message holds the reply; (3) whether the
+~4k-token prompt means tool definitions are sent to the model. Both test agents were stopped via
+`POST /stop` afterwards (not deleted); both are `is_public: true` and `accepting_bids: true`, with always-on skills
+including `wallet-ops`, `perps-trading`, `x402` and `private-transfers`.
 
 ## Benchmark decision
 
@@ -80,6 +125,38 @@ Created by `scripts/setup-devnet.ts` (re-run confirmed idempotent: both mints re
 Both mints carry only the extensions `create_arena` allows. Mint authority is the deploy wallet.
 Circle devnet USDC was not used: its faucet is a captcha-gated web page, and §2 permits a labelled
 six-decimal `USDC-DEV`.
+
+## Program deployment (verified 2026-09-23)
+
+`stock_arena` `8xYafVKnRmi99cRPQV2TLRHRH2MsfjZtJH4DMy8anHiC` deployed to devnet by the deploy wallet
+(upgrade authority) after `scripts/verify.sh` passed. `npm run setup:devnet` then initialized the
+protocol (admin `ChiK…`, orchestrator `B5yR…`, 9–15 min durations, 60 s max price age, 500 bps max
+confidence) and created the OPENAI Arena (TSLA Core ID, exponent −5, `USDC-DEV` quote). A re-run
+read both accounts back and matched admin, orchestrator and mints. Signatures in `code.md` §20.
+
+| Account        | Address                                        |
+| -------------- | ---------------------------------------------- |
+| ProtocolConfig | `GpEb3kYnx6N1XvhEQpcEcVu6eWGeAQq4nSnLTGwXYegj` |
+| OPENAI Arena   | `EiU5fEjdekCARW7eUseaebi23HwAjZZJ9789Kx28KiPt` |
+
+## AAPLX tokenized-stock Arena (verified 2026-09-23)
+
+Mainnet mint `XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp` (Apple xStock, issuer Backed Finance).
+Resolved from `https://api.backed.fi/api/v1/token` (`deployments[].network == "Solana"`, `svm:`
+prefix) and matched against the `xstocks.fi` site's `addresses.solana`. Mainnet RPC: Token-2022,
+**8 decimals**, mint and freeze authorities set, extensions `metadataPointer`, `permanentDelegate`,
+`defaultAccountState`, `scaledUiAmountConfig`, `pausableConfig`, `confidentialTransferMint`, a
+dormant `transferHook` (no program) and `tokenMetadata`. No transfer fee.
+
+As with OPENAI the devnet copy reproduces only the token program, decimals and label:
+`AAPLX (devnet test copy)` `2dQA9pgpvuBqdB4Q5xp2Ruxh8yE7hGeWQ52x85V94dKg`, both players funded with
+100 AAPLX-DEV. Arena `GiQBaoRxcEBRoTNFVxdaKqFe8S5ih7oXvCaGaTvnVPC1` (TSLA benchmark, `USDC-DEV`
+quote); `create_arena` accepting it proves the copy passes the extension allowlist.
+
+Cross-token smoke test after the in-place upgrade (`4naJVC…MzcDVMcXB`), match
+`2YXxVDFqfdGDev62FPWU1hVvjBo4twVRtnf4QPkaBhvs`: create `7YS3zi…yuFqFJcXiHFTtSA`, join
+`3uQqEC…Hf5nFB5HMzWtUY`, refunds `29CeTV…jNk2Px8P` and `3kT5Gd…6EXwZ445cNDKR71B`. Vaults held
+50,000,000 and 5,000,000 base units (0.05 each), then zero; both players restored exactly.
 
 ## Devnet post/read (gate 8, verified 2026-09-23)
 

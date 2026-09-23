@@ -192,11 +192,26 @@ describe('create_match', () => {
     expect(state.state).toHaveProperty('open');
   });
 
+  it('rejects a zero strike', async () => {
+    await expectAnchorError(openMatch({ strike: 0n }), 'ZeroAmount');
+  });
+
+  // 0.05 tokens at ASSET_DECIMALS is 5 * 10^(decimals - 2) base units.
+  const MIN_STAKE = 5n * 10n ** BigInt(ASSET_DECIMALS - 2);
+
   it.each([
     ['a zero stake', { stake: 0n }],
-    ['a zero strike', { strike: 0n }],
+    ['a creator stake one unit under 0.05 tokens', { stake: MIN_STAKE - 1n }],
+    ['a challenger stake one unit under 0.05 tokens', { challengerStake: MIN_STAKE - 1n }],
   ])('rejects %s', async (_label, options) => {
-    await expectAnchorError(openMatch(options), 'ZeroAmount');
+    await expectAnchorError(openMatch(options), 'StakeBelowMinimum');
+  });
+
+  it('accepts a stake of exactly 0.05 tokens on both sides', async () => {
+    const { match } = await openMatch({ stake: MIN_STAKE });
+    const state = await h.program.account.match.fetch(match);
+    expect(state.creatorStakeAmount.toString()).toBe(MIN_STAKE.toString());
+    expect(state.challengerStakeAmount.toString()).toBe(MIN_STAKE.toString());
   });
 
   it('rejects a mint that is not the Arena asset', async () => {

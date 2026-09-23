@@ -54,13 +54,13 @@ export interface TurnRecord {
 export async function ensureAgent(
   db: PrismaClient,
   config: WorkerConfig,
-  connection: Connection,
+  mainnet: Connection,
   playerWallet: PublicKey,
 ): Promise<{ agentId: string; agentWallet: string }> {
   const key = playerWallet.toBase58();
   const existing = await db.battleAgent.findUnique({ where: { playerWallet: key } });
   if (existing && existing.status === 'Active') {
-    await assertEmpty(connection, existing.agentWallet);
+    await assertEmpty(mainnet, existing.agentWallet);
     await db.battleAgent.update({
       where: { playerWallet: key },
       data: { lastZeroBalanceCheck: new Date() },
@@ -81,7 +81,7 @@ export async function ensureAgent(
     playerWallet: key,
   });
   // Checked immediately after creation, before the agent is ever used or persisted as Active.
-  await assertEmpty(connection, created.agentWallet);
+  await assertEmpty(mainnet, created.agentWallet);
   await db.battleAgent.create({
     data: {
       playerWallet: key,
@@ -97,6 +97,7 @@ export async function ensureAgent(
 
 /**
  * The chain is the authority on what an agent wallet holds, not the provider that created it.
+ * ClawPump agent wallets are mainnet accounts, so a devnet connection here would always read empty.
  * Both token programs are checked, because a Token-2022 balance is just as much a balance.
  */
 async function assertEmpty(connection: Connection, agentWallet: string): Promise<void> {
@@ -236,7 +237,8 @@ export function predictionContext(context: RoundContext): PredictionContext {
 export async function runRoundTurns(
   db: PrismaClient,
   config: WorkerConfig,
-  connection: Connection,
+  /** Read-only mainnet: where agent wallets live. */
+  mainnet: Connection,
   context: RoundContext,
   players: [RoundPlayer, RoundPlayer],
 ): Promise<[TurnRecord, TurnRecord]> {
@@ -293,7 +295,7 @@ export async function runRoundTurns(
       };
       if (strategy !== null) {
         try {
-          const agent = await ensureAgent(db, config, connection, player.wallet);
+          const agent = await ensureAgent(db, config, mainnet, player.wallet);
           agentPlayerWallet = player.wallet.toBase58();
           turn = await requestPrediction({
             baseUrl: config.clawpumpBaseUrl,

@@ -10,13 +10,13 @@ use crate::vault::pay_out;
 pub struct RefundDeposit<'info> {
     #[account(mut)]
     pub claimant: Signer<'info>,
+    /// The claimant's own stake Arena; checked against the match in the handler.
     #[account(seeds = [b"arena", arena.asset_mint.as_ref(), arena.benchmark_feed_id.as_ref()], bump = arena.bump)]
     pub arena: Account<'info, Arena>,
     #[account(
         mut,
         seeds = [b"match", match_account.creator.as_ref(), &match_account.match_nonce.to_le_bytes()],
-        bump = match_account.bump,
-        has_one = arena @ ArenaError::AccountMismatch
+        bump = match_account.bump
     )]
     pub match_account: Box<Account<'info, Match>>,
     #[account(address = arena.asset_mint @ ArenaError::MintMismatch)]
@@ -63,6 +63,10 @@ fn withdraw_own_deposit(match_account: &mut Match, claimant: Pubkey) -> Result<u
 fn settle_refund(ctx: Context<RefundDeposit>) -> Result<()> {
     let claimant = ctx.accounts.claimant.key();
     let match_account = &mut ctx.accounts.match_account;
+    require!(
+        ctx.accounts.arena.key() == match_account.stake_arena(claimant)?,
+        ArenaError::AccountMismatch
+    );
     let amount = withdraw_own_deposit(match_account, claimant)?;
     pay_out(
         match_account,

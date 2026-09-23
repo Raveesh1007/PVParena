@@ -16,6 +16,17 @@ pub const BENCHMARK_EXPONENT: i32 = -5;
 pub const JOIN_WINDOW_SECONDS: i64 = 15 * 60;
 pub const ACTIVATION_WINDOW_SECONDS: i64 = 5 * 60;
 
+/// Smallest stake either side may escrow: 0.05 whole tokens, in each mint's own base units.
+pub fn min_stake_amount(decimals: u8) -> Result<u64> {
+    let scale = decimals
+        .checked_sub(2)
+        .ok_or(crate::errors::ArenaError::StakeBelowMinimum)?;
+    10u64
+        .checked_pow(u32::from(scale))
+        .and_then(|unit| unit.checked_mul(5))
+        .ok_or(crate::errors::ArenaError::MathOverflow.into())
+}
+
 #[account]
 #[derive(InitSpace)]
 pub struct ProtocolConfig {
@@ -177,16 +188,23 @@ pub struct PriceObservation {
 #[account]
 #[derive(InitSpace)]
 pub struct Match {
+    /// The creator's stake Arena. Its benchmark, timing and quote mint govern the whole match.
     pub arena: Pubkey,
+    /// The challenger's stake Arena; equal to `arena` in a same-token duel. `create_match` requires
+    /// the same benchmark and quote mint, so the only difference is the staked asset.
+    pub challenger_arena: Pubkey,
     pub creator: Pubkey,
     /// Pubkey::default() until join_match. Compare against creator to reject a self-challenge.
     pub challenger: Pubkey,
     pub match_nonce: u64,
 
-    /// Exact Arena-asset amount each player escrows.
-    pub stake_amount: u64,
-    /// Exact quote-token amount the winner pays the loser to exercise. Binding as signed.
-    pub strike_amount: u64,
+    pub creator_stake_amount: u64,
+    pub challenger_stake_amount: u64,
+    /// Quote amount the winner pays to take the loser's stake, one per possible loser, all fixed
+    /// by the creator and accepted as-is by the challenger. Two strikes rather than an exchange
+    /// rate, so no price for either asset is ever needed. `code.md` §19.
+    pub creator_stake_strike: u64,
+    pub challenger_stake_strike: u64,
     pub profile_kind: MatchProfileKind,
     /// Effective oracle limits fixed at creation; protocol updates affect new matches only.
     pub max_price_age_seconds: u64,
@@ -246,6 +264,26 @@ impl Match {
         self.creator_deposit.checked_add(self.challenger_deposit)
     }
 
+    /// The Arena whose asset `player` staked; every payout of that deposit must use its mint.
+    pub fn stake_arena(&self, player: Pubkey) -> Result<Pubkey> {
+        if player == self.creator {
+            Ok(self.arena)
+        } else if player == self.challenger {
+            Ok(self.challenger_arena)
+        } else {
+            Err(crate::errors::ArenaError::AccountMismatch.into())
+        }
+    }
+
+    /// Strike the winner pays for `loser`'s stake.
+    pub fn stake_strike(&self, loser: Pubkey) -> u64 {
+        if loser == self.creator {
+            self.creator_stake_strike
+        } else {
+            self.challenger_stake_strike
+        }
+    }
+
     /// (winner, loser) once `settle_match` has recorded a decisive result. A tie has no winner
     /// and refunds instead, so it is an error here rather than an arbitrary choice.
     pub fn winner_and_loser(&self) -> Result<(Pubkey, Pubkey)> {
@@ -264,5 +302,19 @@ impl Match {
         } else {
             self.target_end_ts
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn min_stake_is_five_hundredths_of_a_token() {
+        assert_eq!(min_stake_amount(9).unwrap(), 50_000_000);
+        assert_eq!(min_stake_amount(6).unwrap(), 50_000);
+        assert_eq!(min_stake_amount(2).unwrap(), 5);
+        assert!(min_stake_amount(1).is_err());
+        assert!(min_stake_amount(0).is_err());
     }
 }

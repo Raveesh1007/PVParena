@@ -1,15 +1,13 @@
 {
   "$comment": [
-    "Arena registry. One entry per PreStocks token that gets an Arena.",
+    "Arena registry: one entry per stakeable token. issuer says which official API publishes its",
+    "real mainnet mint (prestocks: prestocks.com/api/prestocks; xstocks: api.backed.fi).",
     "mainnetMint and devnetTestMint are left empty on purpose: both must be resolved and verified",
-    "at setup time and written back by the setup scripts. Never hand-write a mint here.",
-    "benchmark.coreFeedId is the 32-byte Pyth Core ID; a Terminal/Lazer id such as 1314 or 922 is",
-    "NOT a Core id and must never appear. Per-Arena benchmarks are supported by the program; the",
-    "current plan is the same stock benchmark for every Arena because most of these companies have",
-    "no obvious public comparable.",
-    "Duels are same-token only: both players stake the same Arena asset. A cross-token duel would",
-    "need the program to trust a dollar price for each token, and PreStocks markPrice is an",
-    "off-chain API value, which no program decision may ever depend on."
+    "at setup time and written back by scripts/setup-devnet.ts. Never hand-write a mint here.",
+    "benchmark.coreFeedId is the 32-byte Pyth Core ID; a Terminal/Lazer id such as 1435 or 922 is",
+    "NOT a Core id and must never appear. Every Arena shares this one benchmark, which is what lets",
+    "a match pair any two Arenas: players may stake different tokens, and the creator fixes both",
+    "amounts and both USDC strikes up front, so no token ever needs a price the program trusts."
   ],
   "benchmark": {
     "symbol": "Equity.US.TSLA/USD",
@@ -21,49 +19,65 @@
   "arenas": [
     {
       "symbol": "OPENAI",
+      "issuer": "prestocks",
       "enabled": true,
       "note": "Built end to end first, per the schedule.",
       "mainnetMint": "PreweJYECqtQwBtpxHL171nL2K6umo692gTm7Q3rpgF",
       "devnetTestMint": "8u5symXKPiA5wvUzkEy8HKS184j2of29ZkWwkiqUDkHV"
     },
     {
+      "symbol": "AAPLX",
+      "issuer": "xstocks",
+      "enabled": true,
+      "note": "Tokenized public stock (Apple xStock). Benchmark stays TSLA: the Pyth trial does not entitle AAPL.",
+      "mainnetMint": "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
+      "devnetTestMint": "2dQA9pgpvuBqdB4Q5xp2Ruxh8yE7hGeWQ52x85V94dKg"
+    },
+    {
       "symbol": "ANDURIL",
+      "issuer": "prestocks",
       "enabled": false,
       "mainnetMint": "",
       "devnetTestMint": ""
     },
     {
       "symbol": "ANTHROPIC",
+      "issuer": "prestocks",
       "enabled": false,
       "mainnetMint": "",
       "devnetTestMint": ""
     },
     {
       "symbol": "FIGUREAI",
+      "issuer": "prestocks",
       "enabled": false,
       "mainnetMint": "",
       "devnetTestMint": ""
     },
     {
       "symbol": "KALSHI",
+      "issuer": "prestocks",
       "enabled": false,
       "mainnetMint": "",
       "devnetTestMint": ""
     },
     {
       "symbol": "NEURALINK",
+      "issuer": "prestocks",
       "enabled": false,
       "mainnetMint": "",
       "devnetTestMint": ""
     },
     {
       "symbol": "POLYMARKET",
+      "issuer": "prestocks",
       "enabled": false,
       "mainnetMint": "",
       "devnetTestMint": ""
     },
     {
       "symbol": "SPACEX",
+      "issuer": "prestocks",
       "enabled": false,
       "mainnetMint": "",
       "devnetTestMint": ""

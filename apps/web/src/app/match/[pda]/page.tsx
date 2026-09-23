@@ -34,13 +34,27 @@ export default async function MatchPage({ params }: { params: Promise<{ pda: str
           <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-400">Terms</h2>
           <dl className="mt-3 space-y-1.5 text-sm">
             <Row label="Profile" value={match.profile} />
-            <Row label="Stake each" value={formatAmount(match.stakeAmount, 6)} />
-            <Row label="Option strike" value={`${formatAmount(match.strikeAmount, 6)} USDC`} />
+            <Row
+              label="Creator stakes"
+              value={`${formatAmount(match.stakes.creator.amount, match.stakes.creator.decimals)} ${match.stakes.creator.symbol}`}
+            />
+            <Row
+              label="Challenger stakes"
+              value={`${formatAmount(match.stakes.challenger.amount, match.stakes.challenger.decimals)} ${match.stakes.challenger.symbol}`}
+            />
+            <Row
+              label="Strike for creator's stake"
+              value={`${formatAmount(match.stakes.creator.strike, 6)} USDC`}
+            />
+            <Row
+              label="Strike for challenger's stake"
+              value={`${formatAmount(match.stakes.challenger.strike, 6)} USDC`}
+            />
             <Row label="Creator" value={short(match.creator)} />
             <Row label="Challenger" value={match.challenger ? short(match.challenger) : 'open'} />
           </dl>
           <p className="mt-3 text-xs text-neutral-500">
-            Terms are immutable once the challenger joins. The strike is the exact amount both
+            Terms are immutable once the challenger joins. Each strike is the exact amount both
             players signed; no price feed and no <code>markPrice</code> can change it.
           </p>
         </div>

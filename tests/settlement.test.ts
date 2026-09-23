@@ -1,6 +1,10 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { Keypair, PublicKey, SystemProgram } from '@solana/web3.js';
-import { ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddressSync,
+} from '@solana/spl-token';
 import {
   BENCHMARK_PRICE,
   type CreateOptions,
@@ -17,6 +21,7 @@ import {
   expectAnchorError,
   expectFailure,
   fundedPlayer,
+  fundedPlayerOfMint,
   giveTokens,
   join,
   mintToAccount,
@@ -24,7 +29,9 @@ import {
   pause,
   postPriceUpdate,
   quoteAtaFor,
+  addArena,
   setupHarness,
+  stakeSide,
   tokenBalance,
   warpTo,
 } from './setup.js';
@@ -120,11 +127,11 @@ const claim = (m: OpenMatch, winner: Player) =>
     .claimWinnerStake()
     .accountsPartial({
       winner: winner.keypair.publicKey,
-      arena: h.arenaPda,
+      arena: stakeSide(m, winner).arena,
       matchAccount: m.match,
-      assetMint: h.assetMint,
+      assetMint: stakeSide(m, winner).mint,
       winnerAssetAccount: winner.assetAccount,
-      vault: m.vault,
+      vault: stakeSide(m, winner).vault,
       assetTokenProgram: TOKEN_PROGRAM_ID,
     })
     .signers([winner.keypair])
@@ -142,14 +149,17 @@ function exercise(
     .accountsPartial({
       winner: winner.keypair.publicKey,
       loser: loser.keypair.publicKey,
-      arena: h.arenaPda,
+      arena: stakeSide(m, loser).arena,
       matchAccount: m.match,
-      assetMint: h.assetMint,
+      assetMint: stakeSide(m, loser).mint,
       quoteMint: overrides.quoteMint ?? h.quoteMint,
-      winnerAssetAccount: winner.assetAccount,
+      winnerAssetAccount: getAssociatedTokenAddressSync(
+        stakeSide(m, loser).mint,
+        winner.keypair.publicKey,
+      ),
       winnerQuoteAccount,
       loserQuoteAccount: overrides.loserQuoteAccount ?? quoteAtaFor(h, loser.keypair.publicKey),
-      vault: m.vault,
+      vault: stakeSide(m, loser).vault,
       assetTokenProgram: TOKEN_PROGRAM_ID,
       quoteTokenProgram: TOKEN_PROGRAM_ID,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -164,11 +174,11 @@ const reclaim = (m: OpenMatch, loser: Player) =>
     .reclaimAfterOptionExpiry()
     .accountsPartial({
       loser: loser.keypair.publicKey,
-      arena: h.arenaPda,
+      arena: stakeSide(m, loser).arena,
       matchAccount: m.match,
-      assetMint: h.assetMint,
+      assetMint: stakeSide(m, loser).mint,
       loserAssetAccount: loser.assetAccount,
-      vault: m.vault,
+      vault: stakeSide(m, loser).vault,
       assetTokenProgram: TOKEN_PROGRAM_ID,
     })
     .signers([loser.keypair])
@@ -179,11 +189,11 @@ const refundTie = (m: OpenMatch, claimant: Player) =>
     .refundTie()
     .accountsPartial({
       claimant: claimant.keypair.publicKey,
-      arena: h.arenaPda,
+      arena: stakeSide(m, claimant).arena,
       matchAccount: m.match,
-      assetMint: h.assetMint,
+      assetMint: stakeSide(m, claimant).mint,
       claimantAssetAccount: claimant.assetAccount,
-      vault: m.vault,
+      vault: stakeSide(m, claimant).vault,
       assetTokenProgram: TOKEN_PROGRAM_ID,
     })
     .signers([claimant.keypair])
@@ -194,7 +204,7 @@ async function readyMatch(
   options: CreateOptions = {},
 ): Promise<OpenMatch & { challenger: Player }> {
   const m = await openMatch(h, options);
-  const challenger = await fundedPlayer(h, STAKE * 2n);
+  const challenger = await fundedPlayerOfMint(h, m.challengerMint, STAKE * 2n);
   await join(h, m, challenger);
   return { ...m, challenger };
 }
@@ -227,9 +237,9 @@ async function liveMatch(
 async function playOut(
   creatorPrice: bigint,
   challengerPrice: bigint,
-  options: { skipRound?: number } = {},
+  options: { skipRound?: number; create?: CreateOptions } = {},
 ): Promise<LiveMatch> {
-  const m = await liveMatch();
+  const m = await liveMatch(options.create);
   for (const [round, due] of m.roundDue.entries()) {
     await warpTo(h, due);
     if (round === options.skipRound) continue;
@@ -633,11 +643,11 @@ const refundTieOrFailure = (m: OpenMatch, claimant: Player) =>
     .refundFailedMatch()
     .accountsPartial({
       claimant: claimant.keypair.publicKey,
-      arena: h.arenaPda,
+      arena: stakeSide(m, claimant).arena,
       matchAccount: m.match,
-      assetMint: h.assetMint,
+      assetMint: stakeSide(m, claimant).mint,
       claimantAssetAccount: claimant.assetAccount,
-      vault: m.vault,
+      vault: stakeSide(m, claimant).vault,
       assetTokenProgram: TOKEN_PROGRAM_ID,
     })
     .signers([claimant.keypair])
@@ -851,5 +861,166 @@ describe('update_protocol_config', () => {
 
   it('exposes the Pyth receiver program as the only accepted price-update owner', () => {
     expect(PYTH_RECEIVER_PROGRAM_ID.toBase58()).toBe('rec5EKMGg6MxZYaMdyBfgwp4d5rB9T1VQH5pJv5LtFJ');
+  });
+});
+
+describe('cross-token duels', () => {
+  // A 9-decimal second asset, like the PreStocks mints, on the same benchmark and quote.
+  let other: { mint: PublicKey; arena: PublicKey };
+  const OTHER_STAKE = 150_000_000n; // 0.15 tokens at 9 decimals; readyMatch funds 2 * STAKE
+  const OTHER_STRIKE = 70_000_000n;
+  let cross: CreateOptions;
+
+  beforeAll(async () => {
+    other = await addArena(h, 9);
+    cross = {
+      challengerArena: other.arena,
+      challengerMint: other.mint,
+      challengerStake: OTHER_STAKE,
+      challengerStrike: OTHER_STRIKE,
+    };
+  });
+
+  it('escrows each side in its own mint and records both terms', async () => {
+    const m = await readyMatch(cross);
+    expect(await tokenBalance(h, m.vault)).toBe(STAKE);
+    expect(await tokenBalance(h, m.challengerVault)).toBe(OTHER_STAKE);
+
+    const state = await h.program.account.match.fetch(m.match);
+    expect(state.challengerArena.toBase58()).toBe(other.arena.toBase58());
+    expect(state.creatorDeposit.toString()).toBe(STAKE.toString());
+    expect(state.challengerDeposit.toString()).toBe(OTHER_STAKE.toString());
+    expect(state.creatorStakeStrike.toString()).toBe(STRIKE.toString());
+    expect(state.challengerStakeStrike.toString()).toBe(OTHER_STRIKE.toString());
+  });
+
+  it("applies the minimum in the challenger's own decimals", async () => {
+    // 0.05 tokens at 9 decimals; the creator's 6-decimal minimum would be far smaller.
+    await expectAnchorError(
+      openMatch(h, { ...cross, challengerStake: 50_000_000n - 1n }),
+      'StakeBelowMinimum',
+    );
+  });
+
+  it('refuses a challenger Arena on a different benchmark', async () => {
+    const elsewhere = await addArena(h, 9, Buffer.alloc(32, 0xcd));
+    await expectAnchorError(
+      openMatch(h, { ...cross, challengerArena: elsewhere.arena, challengerMint: elsewhere.mint }),
+      'ArenaMismatch',
+    );
+  });
+
+  it('refuses a challenger Arena with a different quote mint', async () => {
+    const quote = await addArena(h, 6);
+    const elsewhere = await addArena(h, 9, undefined, quote.mint);
+    await expectAnchorError(
+      openMatch(h, { ...cross, challengerArena: elsewhere.arena, challengerMint: elsewhere.mint }),
+      'ArenaMismatch',
+    );
+  });
+
+  it('refuses a join in the creator’s token instead of the named one', async () => {
+    const m = await openMatch(h, cross);
+    const wrong = await fundedPlayer(h, STAKE * 2n);
+    await expectAnchorError(
+      join(h, { ...m, challengerMint: h.assetMint, challengerVault: m.vault }, wrong),
+      'MintMismatch',
+    );
+  });
+
+  it('creator wins: claims own token, then buys the challenger’s token at its strike', async () => {
+    const m = await playOut(FINAL_PRICE, FINAL_PRICE + 1_000_000n, { create: cross });
+    const winnerQuote = await giveTokens(h, m.player.keypair.publicKey, h.quoteMint, OTHER_STRIKE);
+
+    await claim(m, m.player);
+    await exercise(m, m.player, m.challenger, winnerQuote);
+
+    const winnerOther = getAssociatedTokenAddressSync(other.mint, m.player.keypair.publicKey);
+    expect(await tokenBalance(h, winnerOther)).toBe(OTHER_STAKE);
+    expect(await tokenBalance(h, quoteAtaFor(h, m.challenger.keypair.publicKey))).toBe(
+      OTHER_STRIKE,
+    );
+    expect(await tokenBalance(h, m.vault)).toBe(0n);
+    expect(await tokenBalance(h, m.challengerVault)).toBe(0n);
+  });
+
+  it('challenger wins: pays the creator-stake strike and takes the creator’s token', async () => {
+    const m = await playOut(FINAL_PRICE + 1_000_000n, FINAL_PRICE, { create: cross });
+    const winnerQuote = await giveTokens(h, m.challenger.keypair.publicKey, h.quoteMint, STRIKE);
+    const challengerAssetBefore = await tokenBalance(h, m.challenger.assetAccount);
+
+    await exercise(m, m.challenger, m.player, winnerQuote);
+    await claim(m, m.challenger);
+
+    const winnerCreatorToken = getAssociatedTokenAddressSync(
+      h.assetMint,
+      m.challenger.keypair.publicKey,
+    );
+    expect(await tokenBalance(h, winnerCreatorToken)).toBe(STAKE);
+    expect(await tokenBalance(h, m.challenger.assetAccount)).toBe(
+      challengerAssetBefore + OTHER_STAKE,
+    );
+    expect(await tokenBalance(h, quoteAtaFor(h, m.player.keypair.publicKey))).toBe(STRIKE);
+    expect(await tokenBalance(h, m.vault)).toBe(0n);
+    expect(await tokenBalance(h, m.challengerVault)).toBe(0n);
+  });
+
+  it('refuses a payout routed through the other player’s Arena', async () => {
+    const m = await playOut(FINAL_PRICE, FINAL_PRICE + 1_000_000n, { create: cross });
+    const misrouted = h.program.methods
+      .claimWinnerStake()
+      .accountsPartial({
+        winner: m.player.keypair.publicKey,
+        arena: other.arena,
+        matchAccount: m.match,
+        assetMint: other.mint,
+        winnerAssetAccount: await giveTokens(h, m.player.keypair.publicKey, other.mint, 0n),
+        vault: m.challengerVault,
+        assetTokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .signers([m.player.keypair])
+      .rpc();
+    await expectAnchorError(misrouted, 'AccountMismatch');
+  });
+
+  it('tie: each player takes back exactly their own token', async () => {
+    const m = await playOut(FINAL_PRICE, FINAL_PRICE, { create: cross });
+    const creatorBefore = await tokenBalance(h, m.player.assetAccount);
+    const challengerBefore = await tokenBalance(h, m.challenger.assetAccount);
+
+    await refundTie(m, m.player);
+    await refundTie(m, m.challenger);
+
+    expect(await tokenBalance(h, m.player.assetAccount)).toBe(creatorBefore + STAKE);
+    expect(await tokenBalance(h, m.challenger.assetAccount)).toBe(challengerBefore + OTHER_STAKE);
+    expect(await tokenBalance(h, m.vault)).toBe(0n);
+    expect(await tokenBalance(h, m.challengerVault)).toBe(0n);
+  });
+
+  it('expiry: the loser reclaims their own token and both vaults empty', async () => {
+    const m = await playOut(FINAL_PRICE, FINAL_PRICE + 1_000_000n, { create: cross });
+    await warpTo(h, m.optionExpiry + 1n);
+    const loserBefore = await tokenBalance(h, m.challenger.assetAccount);
+
+    await reclaim(m, m.challenger);
+    await claim(m, m.player);
+
+    expect(await tokenBalance(h, m.challenger.assetAccount)).toBe(loserBefore + OTHER_STAKE);
+    expect(await tokenBalance(h, m.vault)).toBe(0n);
+    expect(await tokenBalance(h, m.challengerVault)).toBe(0n);
+  });
+
+  it('activation failure: each player refunds their own token once', async () => {
+    const m = await readyMatch(cross);
+    const state = await h.program.account.match.fetch(m.match);
+    await warpTo(h, BigInt(state.activationDeadlineTs.toString()) + 1n);
+
+    await refundTieOrFailure(m, m.challenger);
+    await refundTieOrFailure(m, m.player);
+    await expectAnchorError(refundTieOrFailure(m, m.challenger), 'AlreadySettled');
+
+    expect(await tokenBalance(h, m.challenger.assetAccount)).toBe(STAKE * 2n);
+    expect(await tokenBalance(h, m.vault)).toBe(0n);
+    expect(await tokenBalance(h, m.challengerVault)).toBe(0n);
   });
 });

@@ -1,7 +1,8 @@
 # Stock Arena
 
-Two-player PvP market-prediction game on **Solana devnet**. Two players escrow equal amounts of a
-clearly labelled devnet test copy of the OpenAI PreStocks token, each supplies a strategy for an
+Two-player PvP market-prediction game on **Solana devnet**. Two players escrow clearly
+labelled devnet test copies of the OpenAI PreStocks token or the Apple xStock (AAPLX) — the same token
+or one each, at least 0.05 per side — each supplies a strategy for an
 empty-wallet ClawPump battle agent, and the agents make three timed predictions for the final price
 of a Pyth stock benchmark. The Anchor program calculates the winner deterministically.
 
@@ -71,7 +72,7 @@ Devnet assets: create the labelled test copy of a PreStocks token and the `USDC-
 fund both demo players, and write the mints to `config/arenas.json` and `.env`. Re-runnable.
 
 ```sh
-SYMBOL=OPENAI AUTHORITY_KEYPAIR=~/.config/solana/id.json   PLAYERS=<playerA>,<playerB> npx vite-node scripts/setup-devnet.ts
+SYMBOL=OPENAI AUTHORITY_KEYPAIR=~/.config/solana/id.json   PLAYERS=<playerA>,<playerB> npm run setup:devnet
 ```
 
 ## Verification

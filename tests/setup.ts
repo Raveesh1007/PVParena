@@ -317,9 +317,19 @@ export async function setupHarness(): Promise<Harness> {
     .accountsPartial({ admin: h.payer.publicKey, systemProgram: SystemProgram.programId })
     .rpc();
 
-  await program.methods
+  await createArenaFor(h, h.assetMint);
+  return h;
+}
+
+export async function createArenaFor(
+  h: Harness,
+  assetMint: PublicKey,
+  feedId: Buffer = BENCHMARK_FEED_ID,
+  quoteMint: PublicKey = h.quoteMint,
+): Promise<PublicKey> {
+  await h.program.methods
     .createArena({
-      benchmarkFeedId: Array.from(BENCHMARK_FEED_ID),
+      benchmarkFeedId: Array.from(feedId),
       benchmarkExponent: -5,
       standardProfile: timingProfile(STANDARD_DURATION),
       demoProfile: timingProfile(DEMO_DURATION),
@@ -328,13 +338,23 @@ export async function setupHarness(): Promise<Harness> {
     })
     .accountsPartial({
       admin: h.payer.publicKey,
-      assetMint: h.assetMint,
-      quoteMint: h.quoteMint,
+      assetMint,
+      quoteMint,
       systemProgram: SystemProgram.programId,
     })
     .rpc();
+  return arenaPda(assetMint, feedId);
+}
 
-  return h;
+/** A second asset with its own Arena on the same benchmark, for cross-token duels. */
+export async function addArena(
+  h: Harness,
+  decimals: number,
+  feedId: Buffer = BENCHMARK_FEED_ID,
+  quoteMint: PublicKey = h.quoteMint,
+): Promise<{ mint: PublicKey; arena: PublicKey }> {
+  const mint = await createMint(h, decimals);
+  return { mint, arena: await createArenaFor(h, mint, feedId, quoteMint) };
 }
 
 /* ------------------------------------------------------------------------------------------- */
@@ -494,12 +514,22 @@ export async function expectFailure(promise: Promise<unknown>): Promise<void> {
 export interface OpenMatch {
   player: Player;
   match: PublicKey;
+  arena: PublicKey;
+  assetMint: PublicKey;
   vault: PublicKey;
+  challengerArena: PublicKey;
+  challengerMint: PublicKey;
+  /** The challenger's vault; equal to `vault` in a same-token duel. */
+  challengerVault: PublicKey;
 }
 
 export interface CreateOptions {
   stake?: bigint;
   strike?: bigint;
+  challengerStake?: bigint;
+  challengerStrike?: bigint;
+  challengerArena?: PublicKey;
+  challengerMint?: PublicKey;
   profile?: 'standard' | 'demo';
   assetMint?: PublicKey;
 }
@@ -517,20 +547,30 @@ export async function createWith(
   const matchNonce = nextNonce();
   const match = matchPda(player.keypair.publicKey, matchNonce);
   const assetMint = options.assetMint ?? h.assetMint;
+  const challengerArena = options.challengerArena ?? h.arenaPda;
+  const challengerMint = options.challengerMint ?? h.assetMint;
+  const stake = options.stake ?? STAKE;
+  const strike = options.strike ?? STRIKE;
   await h.program.methods
     .createMatch(
       bn(matchNonce),
-      bn(options.stake ?? STAKE),
-      bn(options.strike ?? STRIKE),
-      { [options.profile ?? 'demo']: {} } as never,
+      {
+        creatorStakeAmount: bn(stake),
+        challengerStakeAmount: bn(options.challengerStake ?? stake),
+        creatorStakeStrike: bn(strike),
+        challengerStakeStrike: bn(options.challengerStrike ?? strike),
+        profileKind: { [options.profile ?? 'demo']: {} } as never,
+      },
       commitment(1),
     )
     .accountsPartial({
       creator: player.keypair.publicKey,
       config: h.configPda,
       arena: h.arenaPda,
+      challengerArena,
       matchAccount: match,
       assetMint,
+      challengerAssetMint: challengerMint,
       creatorAssetAccount: player.assetAccount,
       vault: vaultFor(assetMint, match),
       assetTokenProgram: TOKEN_PROGRAM_ID,
@@ -539,7 +579,16 @@ export async function createWith(
     })
     .signers([player.keypair])
     .rpc();
-  return { player, match, vault: vaultFor(assetMint, match) };
+  return {
+    player,
+    match,
+    arena: h.arenaPda,
+    assetMint,
+    vault: vaultFor(assetMint, match),
+    challengerArena,
+    challengerMint,
+    challengerVault: vaultFor(challengerMint, match),
+  };
 }
 
 export function join(h: Harness, m: OpenMatch, challenger: Player, fill = 2): Promise<string> {
@@ -549,14 +598,25 @@ export function join(h: Harness, m: OpenMatch, challenger: Player, fill = 2): Pr
       challenger: challenger.keypair.publicKey,
       config: h.configPda,
       arena: h.arenaPda,
+      challengerArena: m.challengerArena,
       matchAccount: m.match,
-      assetMint: h.assetMint,
+      assetMint: m.challengerMint,
       challengerAssetAccount: challenger.assetAccount,
-      vault: m.vault,
+      vault: m.challengerVault,
       assetTokenProgram: TOKEN_PROGRAM_ID,
+      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      systemProgram: SystemProgram.programId,
     })
     .signers([challenger.keypair])
     .rpc();
+}
+
+/** The Arena, mint and vault holding `player`'s stake. Anyone but the creator gets the challenger
+ *  side, so a non-player still reaches the program and is rejected there. */
+export function stakeSide(m: OpenMatch, player: Player) {
+  return player.keypair.publicKey.equals(m.player.keypair.publicKey)
+    ? { arena: m.arena, mint: m.assetMint, vault: m.vault }
+    : { arena: m.challengerArena, mint: m.challengerMint, vault: m.challengerVault };
 }
 
 export const pause = (h: Harness, paused: boolean): Promise<string> =>

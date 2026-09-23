@@ -10,7 +10,7 @@ import {
   Row,
   formatAmount,
 } from '@/components/cards';
-import { listMatches } from '@/lib/matches';
+import { listMatches, type StakeView } from '@/lib/matches';
 import { arenaRegistry, program } from '@/lib/server';
 
 export const dynamic = 'force-dynamic';
@@ -37,9 +37,9 @@ export default async function ArenaPage({ params }: { params: Promise<{ symbol: 
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">{entry.symbol} Arena</h1>
         <p className="mt-1 text-sm text-neutral-400">
-          Both players stake the same devnet test copy of {entry.symbol}. Same-token only: equal
-          stakes across two different tokens would mean equal dollar value, and no pre-IPO token has
-          a price this program can trust.
+          Stake the devnet test copy of {entry.symbol} against the same token or any other Arena on
+          this benchmark. The creator names both stakes and both strikes up front, so no token ever
+          needs a price the program would have to trust.
         </p>
       </header>
 
@@ -96,8 +96,8 @@ export default async function ArenaPage({ params }: { params: Promise<{ symbol: 
                     {match.creator.slice(0, 4)}…{match.creator.slice(-4)}
                   </span>
                   <span>
-                    {formatAmount(match.stakeAmount, 6)} {entry.symbol} · strike{' '}
-                    {formatAmount(match.strikeAmount, 6)} USDC · {match.profile}
+                    {stakeLabel(match.stakes.creator)} vs {stakeLabel(match.stakes.challenger)} ·{' '}
+                    {match.profile}
                   </span>
                 </a>
               </li>
@@ -155,4 +155,8 @@ async function loadPreStocks(symbol: string) {
     // details.
     return null;
   }
+}
+
+function stakeLabel(stake: StakeView): string {
+  return `${formatAmount(stake.amount, stake.decimals)} ${stake.symbol}`;
 }

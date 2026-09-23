@@ -21,6 +21,7 @@ pub struct OptionExercised {
 pub struct ClaimWinnerStake<'info> {
     #[account(mut)]
     pub winner: Signer<'info>,
+    /// The winner's own stake Arena; checked in the handler.
     #[account(
         seeds = [b"arena", arena.asset_mint.as_ref(), arena.benchmark_feed_id.as_ref()],
         bump = arena.bump
@@ -29,8 +30,7 @@ pub struct ClaimWinnerStake<'info> {
     #[account(
         mut,
         seeds = [b"match", match_account.creator.as_ref(), &match_account.match_nonce.to_le_bytes()],
-        bump = match_account.bump,
-        has_one = arena @ ArenaError::AccountMismatch
+        bump = match_account.bump
     )]
     pub match_account: Box<Account<'info, Match>>,
     #[account(address = arena.asset_mint @ ArenaError::MintMismatch)]
@@ -66,6 +66,10 @@ pub fn claim_winner_stake(ctx: Context<ClaimWinnerStake>) -> Result<()> {
     );
     let (winner, _) = match_account.winner_and_loser()?;
     require!(ctx.accounts.winner.key() == winner, ArenaError::NotWinner);
+    require!(
+        ctx.accounts.arena.key() == match_account.stake_arena(winner)?,
+        ArenaError::AccountMismatch
+    );
     require!(
         !match_account.winner_stake_claimed,
         ArenaError::AlreadySettled
@@ -103,6 +107,7 @@ pub struct ExerciseOption<'info> {
             || loser.key() == match_account.challenger @ ArenaError::AccountMismatch
     )]
     pub loser: UncheckedAccount<'info>,
+    /// The loser's stake Arena: its asset is what changes hands. Checked in the handler.
     #[account(
         seeds = [b"arena", arena.asset_mint.as_ref(), arena.benchmark_feed_id.as_ref()],
         bump = arena.bump
@@ -111,19 +116,20 @@ pub struct ExerciseOption<'info> {
     #[account(
         mut,
         seeds = [b"match", match_account.creator.as_ref(), &match_account.match_nonce.to_le_bytes()],
-        bump = match_account.bump,
-        has_one = arena @ ArenaError::AccountMismatch
+        bump = match_account.bump
     )]
     pub match_account: Box<Account<'info, Match>>,
     #[account(address = arena.asset_mint @ ArenaError::MintMismatch)]
     pub asset_mint: Box<InterfaceAccount<'info, Mint>>,
     #[account(address = arena.quote_mint @ ArenaError::MintMismatch)]
     pub quote_mint: Box<InterfaceAccount<'info, Mint>>,
+    /// In a cross-token duel the winner may never have held the loser's asset.
     #[account(
-        mut,
-        token::mint = asset_mint,
-        token::authority = winner,
-        token::token_program = asset_token_program
+        init_if_needed,
+        payer = winner,
+        associated_token::mint = asset_mint,
+        associated_token::authority = winner,
+        associated_token::token_program = asset_token_program
     )]
     pub winner_asset_account: Box<InterfaceAccount<'info, TokenAccount>>,
     #[account(
@@ -176,11 +182,12 @@ pub fn exercise_option(ctx: Context<ExerciseOption>) -> Result<()> {
     let (winner, loser) = match_account.winner_and_loser()?;
     require!(ctx.accounts.winner.key() == winner, ArenaError::NotWinner);
     require!(
-        ctx.accounts.loser.key() == loser,
+        ctx.accounts.loser.key() == loser
+            && ctx.accounts.arena.key() == match_account.stake_arena(loser)?,
         ArenaError::AccountMismatch
     );
 
-    let strike_amount = match_account.strike_amount;
+    let strike_amount = match_account.stake_strike(loser);
     let asset_amount = if loser == match_account.creator {
         core::mem::replace(&mut match_account.creator_deposit, 0)
     } else {
@@ -229,6 +236,7 @@ pub fn exercise_option(ctx: Context<ExerciseOption>) -> Result<()> {
 pub struct ReclaimAfterOptionExpiry<'info> {
     #[account(mut)]
     pub loser: Signer<'info>,
+    /// The loser's own stake Arena; checked in the handler.
     #[account(
         seeds = [b"arena", arena.asset_mint.as_ref(), arena.benchmark_feed_id.as_ref()],
         bump = arena.bump
@@ -237,8 +245,7 @@ pub struct ReclaimAfterOptionExpiry<'info> {
     #[account(
         mut,
         seeds = [b"match", match_account.creator.as_ref(), &match_account.match_nonce.to_le_bytes()],
-        bump = match_account.bump,
-        has_one = arena @ ArenaError::AccountMismatch
+        bump = match_account.bump
     )]
     pub match_account: Box<Account<'info, Match>>,
     #[account(address = arena.asset_mint @ ArenaError::MintMismatch)]
@@ -276,7 +283,8 @@ pub fn reclaim_after_option_expiry(ctx: Context<ReclaimAfterOptionExpiry>) -> Re
 
     let (_, loser) = match_account.winner_and_loser()?;
     require!(
-        ctx.accounts.loser.key() == loser,
+        ctx.accounts.loser.key() == loser
+            && ctx.accounts.arena.key() == match_account.stake_arena(loser)?,
         ArenaError::AccountMismatch
     );
 

@@ -224,6 +224,7 @@ export type StockArena = {
         },
         {
           name: 'arena';
+          docs: ["The winner's own stake Arena; checked in the handler."];
           pda: {
             seeds: [
               {
@@ -242,7 +243,6 @@ export type StockArena = {
               },
             ];
           };
-          relations: ['matchAccount'];
         },
         {
           name: 'matchAccount';
@@ -442,6 +442,28 @@ export type StockArena = {
           };
         },
         {
+          name: 'challengerArena';
+          docs: ['May be `arena` itself for a same-token duel.'];
+          pda: {
+            seeds: [
+              {
+                kind: 'const';
+                value: [97, 114, 101, 110, 97];
+              },
+              {
+                kind: 'account';
+                path: 'challenger_arena.asset_mint';
+                account: 'arena';
+              },
+              {
+                kind: 'account';
+                path: 'challenger_arena.benchmark_feed_id';
+                account: 'arena';
+              },
+            ];
+          };
+        },
+        {
           name: 'matchAccount';
           writable: true;
           pda: {
@@ -465,12 +487,21 @@ export type StockArena = {
           name: 'assetMint';
         },
         {
+          name: 'challengerAssetMint';
+          docs: [
+            "Read only for its decimals, to apply the minimum stake to the challenger's side.",
+          ];
+        },
+        {
           name: 'creatorAssetAccount';
           writable: true;
         },
         {
           name: 'vault';
-          docs: ['Arena-asset ATA owned by the Match PDA. code.md 7.1.'];
+          docs: [
+            "One vault per staked mint: that mint's ATA owned by the Match PDA. A same-token duel shares",
+            'it, which is safe because payouts follow recorded deposits. `code.md` §7.1.',
+          ];
           writable: true;
           pda: {
             seeds: [
@@ -544,18 +575,10 @@ export type StockArena = {
           type: 'u64';
         },
         {
-          name: 'stakeAmount';
-          type: 'u64';
-        },
-        {
-          name: 'strikeAmount';
-          type: 'u64';
-        },
-        {
-          name: 'profileKind';
+          name: 'terms';
           type: {
             defined: {
-              name: 'matchProfileKind';
+              name: 'matchTerms';
             };
           };
         },
@@ -582,6 +605,9 @@ export type StockArena = {
         },
         {
           name: 'arena';
+          docs: [
+            "The loser's stake Arena: its asset is what changes hands. Checked in the handler.",
+          ];
           pda: {
             seeds: [
               {
@@ -600,7 +626,6 @@ export type StockArena = {
               },
             ];
           };
-          relations: ['matchAccount'];
         },
         {
           name: 'matchAccount';
@@ -632,7 +657,61 @@ export type StockArena = {
         },
         {
           name: 'winnerAssetAccount';
+          docs: ["In a cross-token duel the winner may never have held the loser's asset."];
           writable: true;
+          pda: {
+            seeds: [
+              {
+                kind: 'account';
+                path: 'winner';
+              },
+              {
+                kind: 'account';
+                path: 'assetTokenProgram';
+              },
+              {
+                kind: 'account';
+                path: 'assetMint';
+              },
+            ];
+            program: {
+              kind: 'const';
+              value: [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89,
+              ];
+            };
+          };
         },
         {
           name: 'winnerQuoteAccount';
@@ -854,6 +933,9 @@ export type StockArena = {
           relations: ['matchAccount'];
         },
         {
+          name: 'challengerArena';
+        },
+        {
           name: 'matchAccount';
           writable: true;
           pda: {
@@ -884,6 +966,7 @@ export type StockArena = {
         },
         {
           name: 'vault';
+          docs: ['Already exists for a same-token duel; created here for a cross-token one.'];
           writable: true;
           pda: {
             seeds: [
@@ -942,6 +1025,14 @@ export type StockArena = {
         {
           name: 'assetTokenProgram';
         },
+        {
+          name: 'associatedTokenProgram';
+          address: 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL';
+        },
+        {
+          name: 'systemProgram';
+          address: '11111111111111111111111111111111';
+        },
       ];
       args: [
         {
@@ -992,6 +1083,7 @@ export type StockArena = {
         },
         {
           name: 'arena';
+          docs: ["The loser's own stake Arena; checked in the handler."];
           pda: {
             seeds: [
               {
@@ -1010,7 +1102,6 @@ export type StockArena = {
               },
             ];
           };
-          relations: ['matchAccount'];
         },
         {
           name: 'matchAccount';
@@ -1115,6 +1206,7 @@ export type StockArena = {
         },
         {
           name: 'arena';
+          docs: ["The claimant's own stake Arena; checked against the match in the handler."];
           pda: {
             seeds: [
               {
@@ -1133,7 +1225,6 @@ export type StockArena = {
               },
             ];
           };
-          relations: ['matchAccount'];
         },
         {
           name: 'matchAccount';
@@ -1238,6 +1329,7 @@ export type StockArena = {
         },
         {
           name: 'arena';
+          docs: ["The claimant's own stake Arena; checked against the match in the handler."];
           pda: {
             seeds: [
               {
@@ -1256,7 +1348,6 @@ export type StockArena = {
               },
             ];
           };
-          relations: ['matchAccount'];
         },
         {
           name: 'matchAccount';
@@ -1740,6 +1831,21 @@ export type StockArena = {
       name: 'optionWindowStillOpen';
       msg: 'The option exercise window is still open.';
     },
+    {
+      code: 6032;
+      name: 'unsafeMintExtension';
+      msg: 'Mint carries a Token-2022 extension that is unsafe for escrow; see code.md 3.1.';
+    },
+    {
+      code: 6033;
+      name: 'stakeBelowMinimum';
+      msg: 'Stake is below the 0.05-token minimum.';
+    },
+    {
+      code: 6034;
+      name: 'arenaMismatch';
+      msg: 'Both stake Arenas must share the benchmark feed, exponent and quote mint.';
+    },
   ];
   types: [
     {
@@ -1873,6 +1979,17 @@ export type StockArena = {
         fields: [
           {
             name: 'arena';
+            docs: [
+              "The creator's stake Arena. Its benchmark, timing and quote mint govern the whole match.",
+            ];
+            type: 'pubkey';
+          },
+          {
+            name: 'challengerArena';
+            docs: [
+              "The challenger's stake Arena; equal to `arena` in a same-token duel. `create_match` requires",
+              'the same benchmark and quote mint, so the only difference is the staked asset.',
+            ];
             type: 'pubkey';
           },
           {
@@ -1891,15 +2008,24 @@ export type StockArena = {
             type: 'u64';
           },
           {
-            name: 'stakeAmount';
-            docs: ['Exact Arena-asset amount each player escrows.'];
+            name: 'creatorStakeAmount';
             type: 'u64';
           },
           {
-            name: 'strikeAmount';
+            name: 'challengerStakeAmount';
+            type: 'u64';
+          },
+          {
+            name: 'creatorStakeStrike';
             docs: [
-              'Exact quote-token amount the winner pays the loser to exercise. Binding as signed.',
+              "Quote amount the winner pays to take the loser's stake, one per possible loser, all fixed",
+              'by the creator and accepted as-is by the challenger. Two strikes rather than an exchange',
+              'rate, so no price for either asset is ever needed. `code.md` §19.',
             ];
+            type: 'u64';
+          },
+          {
+            name: 'challengerStakeStrike';
             type: 'u64';
           },
           {
@@ -2171,6 +2297,42 @@ export type StockArena = {
           },
           {
             name: 'cancelled';
+          },
+        ];
+      };
+    },
+    {
+      name: 'matchTerms';
+      docs: [
+        'Every term is fixed by the creator and accepted as-is by the challenger; nothing is negotiated',
+        'after deposit.',
+      ];
+      type: {
+        kind: 'struct';
+        fields: [
+          {
+            name: 'creatorStakeAmount';
+            type: 'u64';
+          },
+          {
+            name: 'challengerStakeAmount';
+            type: 'u64';
+          },
+          {
+            name: 'creatorStakeStrike';
+            type: 'u64';
+          },
+          {
+            name: 'challengerStakeStrike';
+            type: 'u64';
+          },
+          {
+            name: 'profileKind';
+            type: {
+              defined: {
+                name: 'matchProfileKind';
+              };
+            };
           },
         ];
       };
@@ -2480,9 +2642,7 @@ export type StockArena = {
     {
       name: 'roundSubmitted';
       docs: [
-        "Both players' outcomes for a round in one event, because they are submitted in one",
-        "instruction: an indexer must never be able to observe one player's prediction before the",
-        "other's. `code.md` §6.",
+        'One event for both outcomes: an indexer must never see one prediction before the other.',
       ];
       type: {
         kind: 'struct';

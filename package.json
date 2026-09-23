@@ -14,7 +14,9 @@
     "build": "tsc --build && npm run build --workspace @stock-arena/worker && npm run build --workspace @stock-arena/web",
     "test:program": "vitest run tests",
     "wsl:deps": "npm install --no-save --force @esbuild/linux-x64@0.21.5 @rollup/rollup-linux-x64-gnu@4.63.4 solana-bankrun-linux-x64-gnu@0.4.0",
-    "sync:idl": "bash scripts/sync-idl.sh"
+    "sync:idl": "bash scripts/sync-idl.sh",
+    "setup:devnet": "esbuild scripts/setup-devnet.ts --bundle --platform=node --format=cjs --log-level=warning --outfile=target/setup-devnet.cjs && node target/setup-devnet.cjs",
+    "test:integration:clawpump": "esbuild scripts/gate-clawpump.ts --bundle --platform=node --format=cjs --external:@prisma/client --log-level=warning --outfile=target/gate-clawpump.cjs && node --env-file=.env target/gate-clawpump.cjs"
   },
   "devDependencies": {
     "@coral-xyz/anchor": "0.31.1",

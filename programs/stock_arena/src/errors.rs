@@ -68,4 +68,8 @@ pub enum ArenaError {
     OptionWindowStillOpen,
     #[msg("Mint carries a Token-2022 extension that is unsafe for escrow; see code.md 3.1.")]
     UnsafeMintExtension,
+    #[msg("Stake is below the 0.05-token minimum.")]
+    StakeBelowMinimum,
+    #[msg("Both stake Arenas must share the benchmark feed, exponent and quote mint.")]
+    ArenaMismatch,
 }

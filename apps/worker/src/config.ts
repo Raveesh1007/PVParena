@@ -9,6 +9,8 @@ import {
 
 export interface WorkerConfig extends IntegrationConfig {
   rpcUrl: string;
+  /** Read-only. ClawPump agent wallets are mainnet accounts, so their emptiness is checked there. */
+  mainnetRpcUrl: string;
   /** The devnet orchestrator. Minimally funded — it pays for Pyth posting and its own fees, and
    *  it can never move escrow, because no instruction gives it that power. */
   orchestrator: Keypair;
@@ -53,6 +55,7 @@ export function loadWorkerConfig(): WorkerConfig {
   return {
     ...loadIntegrationConfig(),
     rpcUrl: required('SOLANA_RPC_URL'),
+    mainnetRpcUrl: optional('SOLANA_MAINNET_RPC_URL', 'https://api.mainnet-beta.solana.com'),
     orchestrator: loadOrchestrator(),
     tickIntervalMs: Number(optional('WORKER_TICK_INTERVAL_MS', '5000')),
     databaseUrl: required('DATABASE_URL'),

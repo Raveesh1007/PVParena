@@ -6,6 +6,8 @@ const mint = z.string().min(32).max(64);
 const arenaEntrySchema = z
   .object({
     symbol: z.string().min(1),
+    /** Who publishes the real mainnet mint: the PreStocks API or the xStocks issuer API. */
+    issuer: z.enum(['prestocks', 'xstocks']).default('prestocks'),
     enabled: z.boolean(),
     note: z.string().optional(),
     /** Empty until a setup script resolves and verifies it. */

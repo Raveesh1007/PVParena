@@ -1,9 +1,11 @@
-// Creates the labelled devnet test copy of one PreStocks token and the USDC-DEV quote mint, funds
-// both demo players, and writes the mints back to config. Re-runnable: existing mints are reused
-// and balances are only topped up. `code.md` §3.1, §13 gates 1, 3 and 4.
+// Creates the labelled devnet test copy of one PreStocks or xStocks token and the USDC-DEV quote mint, funds
+// both demo players, writes the mints back to config, then initializes the protocol and creates the
+// Arena. Re-runnable: existing mints, config and Arena are reused (and checked), balances only topped
+// up. `code.md` §3.1, §7, §13 gates 1, 3 and 4.
 //
-//   SYMBOL=OPENAI AUTHORITY_KEYPAIR=<path> PLAYERS=<pubkeyA>,<pubkeyB> npx vite-node scripts/setup-devnet.ts
+//   SYMBOL=OPENAI AUTHORITY_KEYPAIR=<path> PLAYERS=<pubkeyA>,<pubkeyB> npm run setup:devnet
 import { readFileSync, writeFileSync } from 'node:fs';
+import { AnchorProvider, BN, Program, Wallet } from '@coral-xyz/anchor';
 import {
   Connection,
   Keypair,
@@ -25,7 +27,14 @@ import {
   mintTo,
 } from '@solana/spl-token';
 import { createInitializeInstruction, pack, type TokenMetadata } from '@solana/spl-token-metadata';
-import { fetchPreStocks, findToken, loadArenaRegistry } from '@stock-arena/integrations';
+import { IDL, arenaPda, configPda, parseFeedId, type StockArena } from '@stock-arena/idl';
+import {
+  fetchPreStocks,
+  fetchXStock,
+  findToken,
+  loadArenaRegistry,
+} from '@stock-arena/integrations';
+import { DEMO_PROFILE, STANDARD_PROFILE, type MatchProfile } from '@stock-arena/shared';
 
 const ENV_PATH = '.env';
 const env = Object.fromEntries(
@@ -51,6 +60,10 @@ const players = setting('PLAYERS')
 const ASSET_UNITS = BigInt(setting('ASSET_UNITS_PER_PLAYER', '100'));
 const QUOTE_UNITS = BigInt(setting('QUOTE_UNITS_PER_PLAYER', '100000'));
 const QUOTE_DECIMALS = 6;
+// The values the bankrun suite is written against. The worker posts a fresh update immediately
+// before activate_match, so 60 s is enough headroom for a post plus one confirmation.
+const MAX_PRICE_AGE_SECONDS = 60;
+const MAX_CONFIDENCE_BPS = 500;
 
 const devnet = new Connection(
   setting('SOLANA_RPC_URL', 'https://api.devnet.solana.com'),
@@ -62,9 +75,15 @@ const mainnet = new Connection(
 );
 
 async function main() {
-  const snapshot = await fetchPreStocks({ url: setting('PRESTOCKS_API_URL') });
-  const token = findToken(snapshot, symbol);
-  if (!token) throw new Error(`PreStocks API has no ${symbol} record.`);
+  const registry = loadArenaRegistry(configPath);
+  const arena = registry.arenas.find((entry) => entry.symbol === symbol);
+  if (!arena) throw new Error(`${symbol} is not in ${configPath}.`);
+
+  const token =
+    arena.issuer === 'xstocks'
+      ? await fetchXStock(symbol)
+      : findToken(await fetchPreStocks({ url: setting('PRESTOCKS_API_URL') }), symbol);
+  if (!token) throw new Error(`The ${arena.issuer} API has no Solana ${symbol} record.`);
   const mainnetMint = new PublicKey(token.mainnetMint);
   const owner = (await mainnet.getAccountInfo(mainnetMint))?.owner;
   if (!owner) throw new Error(`Mainnet mint ${mainnetMint.toBase58()} not found.`);
@@ -73,11 +92,7 @@ async function main() {
   if (!owner.equals(TOKEN_2022_PROGRAM_ID)) {
     throw new Error(`${symbol} mainnet mint is owned by ${owner.toBase58()}, not Token-2022.`);
   }
-  console.log(`PreStocks ${symbol}: ${mainnetMint.toBase58()}, ${real.decimals} decimals`);
-
-  const registry = loadArenaRegistry(configPath);
-  const arena = registry.arenas.find((entry) => entry.symbol === symbol);
-  if (!arena) throw new Error(`${symbol} is not in ${configPath}.`);
+  console.log(`${arena.issuer} ${symbol}: ${mainnetMint.toBase58()}, ${real.decimals} decimals`);
 
   const assetMint = arena.devnetTestMint
     ? await reuse(arena.devnetTestMint, real.decimals)
@@ -98,7 +113,83 @@ async function main() {
   writeFileSync(configPath, `${JSON.stringify(raw, null, 2)}\n`);
   writeEnv('QUOTE_ASSET_DEVNET_MINT', quoteMint.toBase58());
   console.log(`Wrote ${configPath} and ${ENV_PATH}.`);
+
+  await initializeProgram(assetMint, quoteMint, registry.benchmark);
 }
+
+async function initializeProgram(
+  assetMint: PublicKey,
+  quoteMint: PublicKey,
+  benchmark: { coreFeedId: string; exponent: number },
+) {
+  const program = new Program<StockArena>(
+    IDL,
+    new AnchorProvider(devnet, new Wallet(authority), { commitment: 'confirmed' }),
+  );
+  if (!authority.publicKey.equals(new PublicKey(setting('ADMIN_WALLET')))) {
+    throw new Error('AUTHORITY_KEYPAIR is not ADMIN_WALLET.');
+  }
+  const orchestrator = Keypair.fromSecretKey(
+    Uint8Array.from(JSON.parse(setting('ORCHESTRATOR_KEYPAIR_JSON'))),
+  ).publicKey;
+
+  const config = await program.account.protocolConfig.fetchNullable(configPda());
+  if (config) {
+    if (!config.admin.equals(authority.publicKey) || !config.orchestrator.equals(orchestrator)) {
+      throw new Error('ProtocolConfig exists with a different admin or orchestrator.');
+    }
+    console.log(`Reusing ProtocolConfig ${configPda().toBase58()}`);
+  } else {
+    const signature = await program.methods
+      .initializeProtocol({
+        orchestrator,
+        minDurationSeconds: new BN(DEMO_PROFILE.durationSeconds),
+        maxDurationSeconds: new BN(STANDARD_PROFILE.durationSeconds),
+        maxPriceAgeSeconds: new BN(MAX_PRICE_AGE_SECONDS),
+        maxConfidenceBps: new BN(MAX_CONFIDENCE_BPS),
+      })
+      .accountsPartial({ admin: authority.publicKey, systemProgram: SystemProgram.programId })
+      .rpc();
+    console.log(`initialize_protocol ${signature}`);
+  }
+
+  const feedId = parseFeedId(benchmark.coreFeedId);
+  const arenaAddress = arenaPda(assetMint, feedId);
+  const arena = await program.account.arena.fetchNullable(arenaAddress);
+  if (arena) {
+    if (!arena.assetMint.equals(assetMint) || !arena.quoteMint.equals(quoteMint)) {
+      throw new Error(`Arena ${arenaAddress.toBase58()} exists with other mints.`);
+    }
+    console.log(`Reusing Arena ${arenaAddress.toBase58()}`);
+    return;
+  }
+  const signature = await program.methods
+    .createArena({
+      benchmarkFeedId: Array.from(feedId),
+      benchmarkExponent: benchmark.exponent,
+      standardProfile: timingProfile(STANDARD_PROFILE),
+      demoProfile: timingProfile(DEMO_PROFILE),
+      maxPriceAgeSeconds: new BN(MAX_PRICE_AGE_SECONDS),
+      maxConfidenceBps: new BN(MAX_CONFIDENCE_BPS),
+    })
+    .accountsPartial({
+      admin: authority.publicKey,
+      assetMint,
+      quoteMint,
+      systemProgram: SystemProgram.programId,
+    })
+    .rpc();
+  console.log(`create_arena ${arenaAddress.toBase58()} ${signature}`);
+}
+
+const timingProfile = (profile: MatchProfile) => ({
+  durationSeconds: new BN(profile.durationSeconds),
+  roundDueOffsets: profile.roundDueOffsets.map((offset) => new BN(offset)),
+  settlementGraceSeconds: new BN(profile.settlementGraceSeconds),
+  exerciseWindowSeconds: new BN(profile.exerciseWindowSeconds),
+  joinWindowSeconds: new BN(profile.joinWindowSeconds),
+  activationWindowSeconds: new BN(profile.activationWindowSeconds),
+});
 
 async function reuse(address: string, decimals: number): Promise<PublicKey> {
   const mint = new PublicKey(address);

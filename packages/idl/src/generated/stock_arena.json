@@ -188,6 +188,7 @@
         },
         {
           "name": "arena",
+          "docs": ["The winner's own stake Arena; checked in the handler."],
           "pda": {
             "seeds": [
               {
@@ -205,8 +206,7 @@
                 "account": "Arena"
               }
             ]
-          },
-          "relations": ["match_account"]
+          }
         },
         {
           "name": "match_account",
@@ -376,6 +376,28 @@
           }
         },
         {
+          "name": "challenger_arena",
+          "docs": ["May be `arena` itself for a same-token duel."],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [97, 114, 101, 110, 97]
+              },
+              {
+                "kind": "account",
+                "path": "challenger_arena.asset_mint",
+                "account": "Arena"
+              },
+              {
+                "kind": "account",
+                "path": "challenger_arena.benchmark_feed_id",
+                "account": "Arena"
+              }
+            ]
+          }
+        },
+        {
           "name": "match_account",
           "writable": true,
           "pda": {
@@ -399,12 +421,21 @@
           "name": "asset_mint"
         },
         {
+          "name": "challenger_asset_mint",
+          "docs": [
+            "Read only for its decimals, to apply the minimum stake to the challenger's side."
+          ]
+        },
+        {
           "name": "creator_asset_account",
           "writable": true
         },
         {
           "name": "vault",
-          "docs": ["Arena-asset ATA owned by the Match PDA. code.md 7.1."],
+          "docs": [
+            "One vault per staked mint: that mint's ATA owned by the Match PDA. A same-token duel shares",
+            "it, which is safe because payouts follow recorded deposits. `code.md` §7.1."
+          ],
           "writable": true,
           "pda": {
             "seeds": [
@@ -448,18 +479,10 @@
           "type": "u64"
         },
         {
-          "name": "stake_amount",
-          "type": "u64"
-        },
-        {
-          "name": "strike_amount",
-          "type": "u64"
-        },
-        {
-          "name": "profile_kind",
+          "name": "terms",
           "type": {
             "defined": {
-              "name": "MatchProfileKind"
+              "name": "MatchTerms"
             }
           }
         },
@@ -488,6 +511,9 @@
         },
         {
           "name": "arena",
+          "docs": [
+            "The loser's stake Arena: its asset is what changes hands. Checked in the handler."
+          ],
           "pda": {
             "seeds": [
               {
@@ -505,8 +531,7 @@
                 "account": "Arena"
               }
             ]
-          },
-          "relations": ["match_account"]
+          }
         },
         {
           "name": "match_account",
@@ -538,7 +563,31 @@
         },
         {
           "name": "winner_asset_account",
-          "writable": true
+          "docs": ["In a cross-token duel the winner may never have held the loser's asset."],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "winner"
+              },
+              {
+                "kind": "account",
+                "path": "asset_token_program"
+              },
+              {
+                "kind": "account",
+                "path": "asset_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140, 151, 37, 143, 78, 36, 137, 241, 187, 61, 16, 41, 20, 142, 13, 131, 11, 90, 19,
+                153, 218, 255, 16, 132, 4, 142, 123, 216, 219, 233, 248, 89
+              ]
+            }
+          }
         },
         {
           "name": "winner_quote_account",
@@ -700,6 +749,9 @@
           "relations": ["match_account"]
         },
         {
+          "name": "challenger_arena"
+        },
+        {
           "name": "match_account",
           "writable": true,
           "pda": {
@@ -730,6 +782,7 @@
         },
         {
           "name": "vault",
+          "docs": ["Already exists for a same-token duel; created here for a cross-token one."],
           "writable": true,
           "pda": {
             "seeds": [
@@ -757,6 +810,14 @@
         },
         {
           "name": "asset_token_program"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         }
       ],
       "args": [
@@ -808,6 +869,7 @@
         },
         {
           "name": "arena",
+          "docs": ["The loser's own stake Arena; checked in the handler."],
           "pda": {
             "seeds": [
               {
@@ -825,8 +887,7 @@
                 "account": "Arena"
               }
             ]
-          },
-          "relations": ["match_account"]
+          }
         },
         {
           "name": "match_account",
@@ -901,6 +962,7 @@
         },
         {
           "name": "arena",
+          "docs": ["The claimant's own stake Arena; checked against the match in the handler."],
           "pda": {
             "seeds": [
               {
@@ -918,8 +980,7 @@
                 "account": "Arena"
               }
             ]
-          },
-          "relations": ["match_account"]
+          }
         },
         {
           "name": "match_account",
@@ -994,6 +1055,7 @@
         },
         {
           "name": "arena",
+          "docs": ["The claimant's own stake Arena; checked against the match in the handler."],
           "pda": {
             "seeds": [
               {
@@ -1011,8 +1073,7 @@
                 "account": "Arena"
               }
             ]
-          },
-          "relations": ["match_account"]
+          }
         },
         {
           "name": "match_account",
@@ -1465,6 +1526,21 @@
       "code": 6031,
       "name": "OptionWindowStillOpen",
       "msg": "The option exercise window is still open."
+    },
+    {
+      "code": 6032,
+      "name": "UnsafeMintExtension",
+      "msg": "Mint carries a Token-2022 extension that is unsafe for escrow; see code.md 3.1."
+    },
+    {
+      "code": 6033,
+      "name": "StakeBelowMinimum",
+      "msg": "Stake is below the 0.05-token minimum."
+    },
+    {
+      "code": 6034,
+      "name": "ArenaMismatch",
+      "msg": "Both stake Arenas must share the benchmark feed, exponent and quote mint."
     }
   ],
   "types": [
@@ -1599,6 +1675,17 @@
         "fields": [
           {
             "name": "arena",
+            "docs": [
+              "The creator's stake Arena. Its benchmark, timing and quote mint govern the whole match."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "challenger_arena",
+            "docs": [
+              "The challenger's stake Arena; equal to `arena` in a same-token duel. `create_match` requires",
+              "the same benchmark and quote mint, so the only difference is the staked asset."
+            ],
             "type": "pubkey"
           },
           {
@@ -1617,15 +1704,24 @@
             "type": "u64"
           },
           {
-            "name": "stake_amount",
-            "docs": ["Exact Arena-asset amount each player escrows."],
+            "name": "creator_stake_amount",
             "type": "u64"
           },
           {
-            "name": "strike_amount",
+            "name": "challenger_stake_amount",
+            "type": "u64"
+          },
+          {
+            "name": "creator_stake_strike",
             "docs": [
-              "Exact quote-token amount the winner pays the loser to exercise. Binding as signed."
+              "Quote amount the winner pays to take the loser's stake, one per possible loser, all fixed",
+              "by the creator and accepted as-is by the challenger. Two strikes rather than an exchange",
+              "rate, so no price for either asset is ever needed. `code.md` §19."
             ],
+            "type": "u64"
+          },
+          {
+            "name": "challenger_stake_strike",
             "type": "u64"
           },
           {
@@ -1897,6 +1993,42 @@
           },
           {
             "name": "Cancelled"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MatchTerms",
+      "docs": [
+        "Every term is fixed by the creator and accepted as-is by the challenger; nothing is negotiated",
+        "after deposit."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "creator_stake_amount",
+            "type": "u64"
+          },
+          {
+            "name": "challenger_stake_amount",
+            "type": "u64"
+          },
+          {
+            "name": "creator_stake_strike",
+            "type": "u64"
+          },
+          {
+            "name": "challenger_stake_strike",
+            "type": "u64"
+          },
+          {
+            "name": "profile_kind",
+            "type": {
+              "defined": {
+                "name": "MatchProfileKind"
+              }
+            }
           }
         ]
       }
@@ -2206,9 +2338,7 @@
     {
       "name": "RoundSubmitted",
       "docs": [
-        "Both players' outcomes for a round in one event, because they are submitted in one",
-        "instruction: an indexer must never be able to observe one player's prediction before the",
-        "other's. `code.md` §6."
+        "One event for both outcomes: an indexer must never see one prediction before the other."
       ],
       "type": {
         "kind": "struct",

@@ -6,6 +6,8 @@ import type { WorkerConfig } from './config.js';
 
 export interface ChainContext {
   connection: Connection;
+  /** Read-only mainnet, for agent-wallet balance checks. Never signs. */
+  mainnet: Connection;
   program: Program<StockArena>;
   provider: AnchorProvider;
   config: PublicKey;
@@ -20,7 +22,13 @@ export function connectChain(config: WorkerConfig): ChainContext {
     preflightCommitment: 'confirmed',
   });
   const program = new Program<StockArena>(IDL, provider);
-  return { connection, program, provider, config: configPda(PROGRAM_ID) };
+  return {
+    connection,
+    mainnet: new Connection(config.mainnetRpcUrl, 'confirmed'),
+    program,
+    provider,
+    config: configPda(PROGRAM_ID),
+  };
 }
 
 /** The on-chain match states, as the Anchor client renders the enum. `code.md` §7.2. */

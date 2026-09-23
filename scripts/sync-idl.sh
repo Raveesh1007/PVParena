@@ -34,4 +34,5 @@ if [ "$idl_id" != "$toml_id" ]; then
   exit 1
 fi
 
+npx prettier --write "$out" > /dev/null
 echo "synced IDL for $idl_id"

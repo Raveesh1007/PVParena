@@ -14,7 +14,7 @@ pub mod state;
 pub mod vault;
 
 use instructions::*;
-use state::{MatchProfileKind, PredictionInput};
+use state::PredictionInput;
 
 declare_id!("8xYafVKnRmi99cRPQV2TLRHRH2MsfjZtJH4DMy8anHiC");
 
@@ -47,19 +47,10 @@ pub mod stock_arena {
     pub fn create_match(
         ctx: Context<CreateMatch>,
         match_nonce: u64,
-        stake_amount: u64,
-        strike_amount: u64,
-        profile_kind: MatchProfileKind,
+        terms: MatchTerms,
         strategy_commitment: [u8; 32],
     ) -> Result<()> {
-        instructions::match_setup::create_match(
-            ctx,
-            match_nonce,
-            stake_amount,
-            strike_amount,
-            profile_kind,
-            strategy_commitment,
-        )
+        instructions::match_setup::create_match(ctx, match_nonce, terms, strategy_commitment)
     }
 
     pub fn join_match(ctx: Context<JoinMatch>, strategy_commitment: [u8; 32]) -> Result<()> {

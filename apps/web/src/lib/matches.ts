@@ -1,10 +1,11 @@
 import 'server-only';
 
 import type { BN } from '@coral-xyz/anchor';
+import { getMint } from '@solana/spl-token';
 import type { PublicKey } from '@solana/web3.js';
 import { BPS_DENOMINATOR, MAX_ROUND_ERROR_BPS, ROUND_WEIGHTS_BPS } from '@stock-arena/shared';
 
-import { program } from './server';
+import { arenaRegistry, program } from './server';
 
 const n = (value: BN | number): number => (typeof value === 'number' ? value : value.toNumber());
 
@@ -17,14 +18,22 @@ export interface RoundView {
   challenger: { outcome: string; predictedPrice: string; errorBps: string | null };
 }
 
+/** One side's escrow terms. `strike` is what the winner pays to take this stake. */
+export interface StakeView {
+  arena: string;
+  symbol: string;
+  decimals: number;
+  amount: string;
+  strike: string;
+}
+
 export interface MatchView {
   pda: string;
   state: string;
   arena: string;
   creator: string;
   challenger: string | null;
-  stakeAmount: string;
-  strikeAmount: string;
+  stakes: { creator: StakeView; challenger: StakeView };
   profile: string;
   commitments: { creator: string; challenger: string | null };
   deadlines: {
@@ -63,6 +72,10 @@ export async function loadMatch(pda: PublicKey): Promise<MatchView | null> {
   const startObservation = observation(account.startObservation);
   const finalObservation = observation(account.finalObservation);
   const settled = finalObservation !== null;
+  const [creatorAsset, challengerAsset] = await Promise.all([
+    stakeAsset(account.arena),
+    stakeAsset(account.challengerArena),
+  ]);
 
   return {
     pda: pda.toBase58(),
@@ -70,8 +83,18 @@ export async function loadMatch(pda: PublicKey): Promise<MatchView | null> {
     arena: account.arena.toBase58(),
     creator: account.creator.toBase58(),
     challenger: challenger === zeroPubkey ? null : challenger,
-    stakeAmount: account.stakeAmount.toString(),
-    strikeAmount: account.strikeAmount.toString(),
+    stakes: {
+      creator: {
+        ...creatorAsset,
+        amount: account.creatorStakeAmount.toString(),
+        strike: account.creatorStakeStrike.toString(),
+      },
+      challenger: {
+        ...challengerAsset,
+        amount: account.challengerStakeAmount.toString(),
+        strike: account.challengerStakeStrike.toString(),
+      },
+    },
     profile: enumName(account.profileKind),
     commitments: {
       creator: hex(account.creatorStrategyCommitment),
@@ -108,6 +131,25 @@ export async function loadMatch(pda: PublicKey): Promise<MatchView | null> {
       creatorRefunded: account.creatorRefunded,
       challengerRefunded: account.challengerRefunded,
     },
+  };
+}
+
+/** Symbol from the registry and decimals from the devnet mint the Arena escrows. */
+async function stakeAsset(arena: PublicKey) {
+  const account = await program().account.arena.fetch(arena);
+  const mint = await getMint(
+    program().provider.connection,
+    account.assetMint,
+    'confirmed',
+    account.assetTokenProgram,
+  );
+  const entry = arenaRegistry().arenas.find(
+    (candidate) => candidate.devnetTestMint === account.assetMint.toBase58(),
+  );
+  return {
+    arena: arena.toBase58(),
+    symbol: entry?.symbol ?? account.assetMint.toBase58().slice(0, 6),
+    decimals: mint.decimals,
   };
 }
 
@@ -167,12 +209,21 @@ function prediction(
   return view;
 }
 
-/** All matches for an Arena, newest first, for the Arena page's challenge list. */
+/** Matches with either side staked in this Arena, newest first. Offsets are the account
+ *  discriminator, then `arena`, then `challenger_arena`. */
 export async function listMatches(arena: PublicKey): Promise<MatchView[]> {
-  const all = await program().account.match.all([
-    { memcmp: { offset: 8, bytes: arena.toBase58() } },
-  ]);
-  const views = await Promise.all(all.map((entry) => loadMatch(entry.publicKey)));
+  const [asCreator, asChallenger] = await Promise.all(
+    [8, 40].map((offset) =>
+      program().account.match.all([{ memcmp: { offset, bytes: arena.toBase58() } }]),
+    ),
+  );
+  const unique = new Map(
+    [...(asCreator ?? []), ...(asChallenger ?? [])].map((entry) => [
+      entry.publicKey.toBase58(),
+      entry.publicKey,
+    ]),
+  );
+  const views = await Promise.all([...unique.values()].map((pda) => loadMatch(pda)));
   return views
     .filter((view): view is MatchView => view !== null)
     .sort((a, b) => b.deadlines.created - a.deadlines.created);
