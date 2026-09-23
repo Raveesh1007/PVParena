@@ -50,9 +50,10 @@ export async function withPriceUpdate(
     ],
   );
 
+  // No tightComputeBudget: it caps each transaction at the sum of declared units, and the consumer
+  // declares none, so activate/settle would run on zero budget (PostUpdate alone overran 35k on devnet).
   const transactions = await builder.buildVersionedTransactions({
     computeUnitPriceMicroLamports: 50_000,
-    tightComputeBudget: true,
   });
   const signatures = await receiver.provider.sendAll(transactions, {
     // Preflight catches a rejected update (wrong feed, stale, confidence too wide) before paying

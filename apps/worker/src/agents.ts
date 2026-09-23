@@ -10,6 +10,7 @@ import {
   type AgentTurnResult,
 } from '@stock-arena/integrations';
 import {
+  type AgentPrediction,
   type PredictionContext,
   type ParsedPrediction,
   computeCommitment,
@@ -26,10 +27,19 @@ export interface RoundPlayer {
   commitment: Buffer;
 }
 
+export interface PricePoint {
+  label: string;
+  price: string;
+  exponent: number;
+  publishTime: number;
+}
+
 export interface RoundContext {
   matchPda: PublicKey;
   round: number;
   observed: ObservedPrice;
+  /** Oldest first; identical for both players. */
+  history: PricePoint[];
   targetPublishTime: number;
   benchmarkSymbol: string;
   benchmarkFeedId: string;
@@ -143,6 +153,13 @@ export function buildPrompt(context: RoundContext, strategy: string | null): str
     'Benchmark facts (identical for both players):',
     JSON.stringify(schema, null, 2),
     '',
+    'Price history this match, oldest first (identical for both players):',
+    ...context.history.map(
+      (point) =>
+        `- ${point.label}: ${point.price} at exponent ${point.exponent}, published ${point.publishTime}`,
+    ),
+    `- Now: ${context.observed.price} at exponent ${context.observed.exponent}, published ${context.observed.publishTime}`,
+    '',
     'Return exactly one JSON object with these keys and no others:',
     'schemaVersion, matchId, round, benchmarkSymbol, benchmarkFeedId, observedPrice,',
     'observedExponent, observedPublishTime, targetPublishTime, predictedFinalPrice,',
@@ -156,6 +173,40 @@ export function buildPrompt(context: RoundContext, strategy: string | null): str
     strategy ?? '(The player supplied no strategy. Use your default judgement.)',
     '</player_strategy>',
   ].join('\n');
+}
+
+/** The on-chain start price, then the price both agents were shown in each earlier round. */
+export async function priceHistory(
+  db: PrismaClient,
+  matchPda: PublicKey,
+  round: number,
+  start: { price: { toString(): string }; exponent: number; publishTime: { toString(): string } },
+): Promise<PricePoint[]> {
+  const earlier = await db.agentTurn.findMany({
+    where: { matchPda: matchPda.toBase58(), round: { lt: round }, outcome: 'Valid' },
+  });
+  const points: PricePoint[] = [
+    {
+      label: 'Match start',
+      price: start.price.toString(),
+      exponent: start.exponent,
+      publishTime: Number(start.publishTime.toString()),
+    },
+  ];
+  for (let previous = 0; previous < round; previous += 1) {
+    // ponytail: a round where both agents failed left no parsed observation and is skipped; persist
+    // the per-round observation if that gap ever matters.
+    const turn = earlier.find((row) => row.round === previous);
+    if (!turn) continue;
+    const seen = turn.parsedPrediction as unknown as AgentPrediction;
+    points.push({
+      label: `Round ${previous}`,
+      price: seen.observedPrice,
+      exponent: seen.observedExponent,
+      publishTime: seen.observedPublishTime,
+    });
+  }
+  return points;
 }
 
 export function predictionContext(context: RoundContext): PredictionContext {

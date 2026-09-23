@@ -12,26 +12,61 @@
     "off-chain API value, which no program decision may ever depend on."
   ],
   "benchmark": {
-    "symbol": "",
-    "coreFeedId": "",
+    "symbol": "Equity.US.TSLA/USD",
+    "coreFeedId": "0x16dad506d7db8da01c87581c87ca897a012a153557d4d578c3b9c9e1bc0632f1",
     "exponent": -5,
-    "source": "",
-    "dateResolved": ""
+    "source": "https://history.pyth-lazer.dourolabs.app/history/v1/symbols (hermes_id) and https://hermes.pyth.network/v2/price_feeds",
+    "dateResolved": "2026-09-23"
   },
   "arenas": [
     {
       "symbol": "OPENAI",
       "enabled": true,
       "note": "Built end to end first, per the schedule.",
+      "mainnetMint": "PreweJYECqtQwBtpxHL171nL2K6umo692gTm7Q3rpgF",
+      "devnetTestMint": "8u5symXKPiA5wvUzkEy8HKS184j2of29ZkWwkiqUDkHV"
+    },
+    {
+      "symbol": "ANDURIL",
+      "enabled": false,
       "mainnetMint": "",
       "devnetTestMint": ""
     },
-    { "symbol": "ANDURIL", "enabled": false, "mainnetMint": "", "devnetTestMint": "" },
-    { "symbol": "ANTHROPIC", "enabled": false, "mainnetMint": "", "devnetTestMint": "" },
-    { "symbol": "FIGURE_AI", "enabled": false, "mainnetMint": "", "devnetTestMint": "" },
-    { "symbol": "KALSHI", "enabled": false, "mainnetMint": "", "devnetTestMint": "" },
-    { "symbol": "NEURALINK", "enabled": false, "mainnetMint": "", "devnetTestMint": "" },
-    { "symbol": "POLYMARKET", "enabled": false, "mainnetMint": "", "devnetTestMint": "" },
-    { "symbol": "SPACEX", "enabled": false, "mainnetMint": "", "devnetTestMint": "" }
+    {
+      "symbol": "ANTHROPIC",
+      "enabled": false,
+      "mainnetMint": "",
+      "devnetTestMint": ""
+    },
+    {
+      "symbol": "FIGUREAI",
+      "enabled": false,
+      "mainnetMint": "",
+      "devnetTestMint": ""
+    },
+    {
+      "symbol": "KALSHI",
+      "enabled": false,
+      "mainnetMint": "",
+      "devnetTestMint": ""
+    },
+    {
+      "symbol": "NEURALINK",
+      "enabled": false,
+      "mainnetMint": "",
+      "devnetTestMint": ""
+    },
+    {
+      "symbol": "POLYMARKET",
+      "enabled": false,
+      "mainnetMint": "",
+      "devnetTestMint": ""
+    },
+    {
+      "symbol": "SPACEX",
+      "enabled": false,
+      "mainnetMint": "",
+      "devnetTestMint": ""
+    }
   ]
 }

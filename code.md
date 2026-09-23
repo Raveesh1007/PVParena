@@ -20,26 +20,26 @@ loser's position for the exact USDC strike both signed pre-match. On expiry the 
 
 ## 2. Fixed decisions — must not drift
 
-|                   |                                                                                                              |
-| ----------------- | ------------------------------------------------------------------------------------------------------------ |
-| Network           | devnet only; never deploy this program to mainnet                                                            |
-| Arena assets      | devnet test copies of PreStocks tokens, never real mainnet assets                                            |
-| Arena registry    | **configuration, not code** — `config/arenas.json`                                                           |
-| Tokens            | the eight in the PreStocks API: ANDURIL, ANTHROPIC, FIGURE_AI, KALSHI, NEURALINK, OPENAI, POLYMARKET, SPACEX |
-| Order             | **OPENAI end to end first**; the other seven are scripts afterwards, and the first cut if Thursday slips     |
-| Duels             | **same-token only**                                                                                          |
-| Benchmark         | one public stock feed (NVDA) for all Arenas; per-Arena benchmarks supported                                  |
-| Quote             | verified Circle devnet USDC, else labelled six-decimal `USDC-DEV`                                            |
-| DB                | PostgreSQL, never SQLite                                                                                     |
-| Auth              | none; wallet-signed transactions authorize financial actions                                                 |
-| Predictions       | no commit–reveal; both players' results submit atomically                                                    |
-| Strategies        | salted commitments, hashed in **TypeScript only**                                                            |
-| Length            | standard 15 min, demo 9 min, minimum 9 min                                                                   |
-| Sessions          | **no market-session subsystem** (§5.2); staleness is the only availability guard                             |
-| Agents            | empty wallets, always                                                                                        |
-| Worker            | independent process at `apps/worker`, never a route in the web app                                           |
-| Champion          | separate from the devnet game; explicit approval before real SOL                                             |
-| Instructions file | `AGENTS.md` only; never create `agent.md`                                                                    |
+|                   |                                                                                                             |
+| ----------------- | ----------------------------------------------------------------------------------------------------------- |
+| Network           | devnet only; never deploy this program to mainnet                                                           |
+| Arena assets      | devnet test copies of PreStocks tokens, never real mainnet assets                                           |
+| Arena registry    | **configuration, not code** — `config/arenas.json`                                                          |
+| Tokens            | the eight in the PreStocks API: ANDURIL, ANTHROPIC, FIGUREAI, KALSHI, NEURALINK, OPENAI, POLYMARKET, SPACEX |
+| Order             | **OPENAI end to end first**; the other seven are scripts afterwards, and the first cut if Thursday slips    |
+| Duels             | **same-token only**                                                                                         |
+| Benchmark         | one public stock feed (TSLA) for all Arenas; per-Arena benchmarks supported                                 |
+| Quote             | verified Circle devnet USDC, else labelled six-decimal `USDC-DEV`                                           |
+| DB                | PostgreSQL, never SQLite                                                                                    |
+| Auth              | none; wallet-signed transactions authorize financial actions                                                |
+| Predictions       | no commit–reveal; both players' results submit atomically                                                   |
+| Strategies        | salted commitments, hashed in **TypeScript only**                                                           |
+| Length            | standard 15 min, demo 9 min, minimum 9 min                                                                  |
+| Sessions          | **no market-session subsystem** (§5.2); staleness is the only availability guard                            |
+| Agents            | empty wallets, always                                                                                       |
+| Worker            | independent process at `apps/worker`, never a route in the web app                                          |
+| Champion          | separate from the devnet game; explicit approval before real SOL                                            |
+| Instructions file | `AGENTS.md` only; never create `agent.md`                                                                   |
 
 **Same-token, because** equal stakes across two tokens means equal _dollar value_, and no pre-IPO
 token has a price the program can trust (`markPrice` is off-chain). §19 removes this constraint
@@ -85,12 +85,20 @@ trusted price. No competing non-PreStocks pre-IPO token anywhere.
 
 ### 3.2 Pyth and Hermes
 
-Benchmark: `Equity.US.NVDA/USD`, exponent **−5**, Spot, min publishers 2, coverage **24/5**. Terminal
-feed ID **1314 is a Pro/Lazer identifier, NOT the Solana Core feed ID** — resolve the 32-byte Core ID
-from the official catalogue and store it in config.
+Benchmark: `Equity.US.TSLA/USD`, exponent **−5**, Spot, min publishers 2, Core ID
+`0x16dad506d7db8da01c87581c87ca897a012a153557d4d578c3b9c9e1bc0632f1` (resolved 23 Sep 2026). Regular
+session 09:30–16:00 New York; pre-market publishing on Hermes Core verified 23 Sep 2026, so coverage
+extends beyond regular hours. Terminal feed ID **1435 is a Pro/Lazer identifier, NOT the Solana Core
+feed ID**. Any public stock is acceptable; TSLA replaced NVDA because the Pyth trial does not entitle
+NVDA (`docs/integration-readiness.md`).
 
 Hermes requires an API key since the 26 Aug 2026 Core upgrade. Register free at `app.pyth.com`;
 record trial expiry (must outlast judging, 2 Oct 2026). **Do not buy a paid plan without approval.**
+The key in use is a Pyth Terminal (Pro) trial key: it authenticates both Hermes Core and Pro, covers
+21 feeds (TSLA, QQQ, VOO are the only stocks), and expires ~6 Oct 2026; the Free plan has no API
+access. Pyth answers **`invalid API key` for a valid key requesting a non-entitled feed**, and a
+freshly issued key was rejected everywhere for ~30 minutes before activating — neither means the key
+is wrong.
 
 ```
 GET https://pyth.dourolabs.app/hermes/v2/updates/price/latest?ids[]=0x<32-byte-core-feed-id>
@@ -103,13 +111,13 @@ prove the key fetches the benchmark and that an update posts and reads on devnet
 **Fallback tree** — switch rather than stall. Every option is a stock or tokenized-stock feed; a
 generic crypto feed is **never acceptable**, it would gut the stock-battle story.
 
-1. `Equity.US.NVDA/USD` (Terminal 1314) → 2. `Equity.US.AAPL/USD` (Terminal 922, Core ID resolved
-   separately) → 3. `Crypto.AAPLX/USD` (xStock, nearer 24/7) → 4. `Crypto.AAPLON/USD` (Ondo) → 5. stop
-   and report. Never substitute a crypto feed or mock data in the demo.
+1. `Equity.US.TSLA/USD` (Terminal 1435) → 2. `Equity.US.QQQ/USD` → 3. `Equity.US.VOO/USD` → 4. stop
+   and report. These are the stock feeds on the Pyth trial; NVDA, AAPL, AAPLX and AAPLON are not
+   entitled. Never substitute a crypto feed or mock data in the demo.
 
 This tree concerns the **benchmark feed only** and is independent of which tokens are stakeable;
-excluding xStocks as _collateral_ does not remove options 3–4 as _benchmarks_. Neither 1314 nor 922
-may appear in `PYTH_BENCHMARK_FEED_ID`. Record symbol, Core ID, catalogue source and date in
+tokenized stocks remain acceptable _benchmarks_ if a plan ever entitles them. No Terminal ID (1435,
+1314, 922) may appear in `PYTH_BENCHMARK_FEED_ID`. Record symbol, Core ID, catalogue source and date in
 `docs/integration-readiness.md`. Never invent, truncate or copy a feed ID from an unofficial article.
 
 Hermes does two jobs: off-chain price context for prompts, and the binary update posted as a
@@ -125,6 +133,11 @@ target_end_ts <= publish_time <= target_end_ts + settlement_grace_seconds
 
 No valid final update within grace → refundable. **No admin may choose a substitute price.** Close
 ephemeral price accounts when safe; posting uses free devnet SOL.
+
+**Posting from TypeScript:** never pass `tightComputeBudget: true` to the receiver SDK's
+`buildVersionedTransactions`. It caps each transaction at the sum of declared compute units;
+`PostUpdate` alone consumed 34,966 of its 35,000 on devnet, and a consumer instruction that declares
+none (`activate_match`, `settle_match`) would get zero.
 
 **SDK (resolved):** `pyth-solana-receiver-sdk 0.6.1` with `anchor-lang` pinned to `0.31.1` — its loose
 range otherwise resolves a second copy at 1.2.0. Version `2.0.0` needs rustc 1.89 vs platform-tools'
@@ -150,7 +163,9 @@ Always-on skills cannot be removed, so agent wallets hold **zero SOL and zero to
 delegate/authority/escrow owner/payout wallet/signer, are balance-checked after creation and before
 every round, and chat is **refused** if one is unexpectedly funded.
 
-Per round: both agents **concurrently**, timeout ≥ 120 s, complete current context in both prompts,
+Per round: both agents **concurrently**, timeout ≥ 120 s, complete current context in both prompts —
+including the match's price history (on-chain start price, then the price both agents were shown in
+each earlier round) so each round can revise against how the benchmark has moved —
 parse exactly one JSON object with Zod, save `meta.requestId` and response hashes. **Never
 blind-retry** — chat is non-idempotent; a timeout, API failure or malformed response becomes a
 documented maximum-penalty outcome. Keep credit for six turns per match plus rehearsals. Never use the
@@ -276,7 +291,7 @@ failure or other defined terminal failure refunds the appropriate deposits.
   "schemaVersion": 1,
   "matchId": "<match-pda>",
   "round": 0,
-  "benchmarkSymbol": "Equity.US.NVDA/USD",
+  "benchmarkSymbol": "Equity.US.TSLA/USD",
   "benchmarkFeedId": "0x<32-byte-core-feed-id>",
   "observedPrice": "22251500",
   "observedExponent": -5,
@@ -490,8 +505,8 @@ DATABASE_URL= · INTERNAL_WORKER_SECRET= · ORCHESTRATOR_KEYPAIR_JSON= · ADMIN_
 PRESTOCKS_API_URL=https://prestocks.com/api/prestocks
 ARENAS_CONFIG_PATH=config/arenas.json · QUOTE_ASSET_DEVNET_MINT=
 PYTH_HERMES_URL=https://pyth.dourolabs.app/hermes · PYTH_API_KEY=
-PYTH_BENCHMARK_SYMBOL=Equity.US.NVDA/USD · PYTH_BENCHMARK_EXPONENT=-5
-PYTH_BENCHMARK_FEED_ID=        # 32-byte Core ID only; never a Terminal ID such as 1314 or 922
+PYTH_BENCHMARK_SYMBOL=Equity.US.TSLA/USD · PYTH_BENCHMARK_EXPONENT=-5
+PYTH_BENCHMARK_FEED_ID=        # 32-byte Core ID only; never a Terminal ID such as 1435
 CLAWPUMP_BASE_URL=https://clawpump.tech/api/v1 · CLAWPUMP_API_KEY= · CLAWPUMP_PAID_MODEL=
 ```
 
@@ -508,7 +523,7 @@ Complete before deep feature work; record in `docs/integration-readiness.md`.
 3. Labelled devnet test copy created (OPENAI first); two demo wallets funded.
 4. Circle devnet USDC and faucet verified, else `USDC-DEV` with 6 decimals created.
 5. `app.pyth.com` account + API key; trial expiry outlasts 2 Oct 2026.
-6. Official **32-byte Core feed ID** resolved (never Terminal 1314).
+6. Official **32-byte Core feed ID** resolved (never a Terminal ID such as 1435).
 7. Authenticated Hermes fetch succeeds; on failure walk the §3.2 tree, resolve a fresh Core ID for the
    symbol landed on, record the decision.
 8. Update posted to and read from devnet.
@@ -600,8 +615,8 @@ Stocklana https://hackathons.solana.com/hackathons/stocklana · rules, max 3 spo
 https://hackathons.solana.com/how-it-works · PreStocks API https://prestocks.com/api/prestocks · Pyth
 Core upgrade https://docs.pyth.network/price-feeds/core/upgrade/preparing · Pyth Solana pull
 integration https://docs.pyth.network/price-feeds/core/use-real-time-data/pull-integration/solana ·
-plans https://app.pyth.com/plans · NVDA https://app.pyth.com/explore/Equity.US.NVDA%2FUSD · AAPL
-https://app.pyth.com/explore/Equity.US.AAPL%2FUSD · ClawPump https://clawpump.tech/developers
+plans https://app.pyth.com/plans · TSLA https://app.pyth.com/explore/Equity.US.TSLA%2FUSD · symbol
+metadata https://history.pyth-lazer.dourolabs.app/history/v1/symbols · ClawPump https://clawpump.tech/developers
 
 ## 19. Post-hackathon: cross-token duels
 
@@ -621,7 +636,7 @@ tested around one vault is the risk, not because it cannot work.
 A larger variant would make each player's _own_ collateral price matter, needing a Pyth feed per
 staked token. Pre-IPO PreStocks tokens have none; only tokenized public stocks do.
 
-## 20. Implementation snapshot — 21 Sep 2026
+## 20. Implementation snapshot — 22–23 Sep 2026
 
 This section records repository status; §§1–19 remain the authoritative requirements. It does not
 mark an external integration as verified or a Definition-of-Done item as complete without evidence.
@@ -657,13 +672,81 @@ mark an external integration as verified or a Definition-of-Done item as complet
   together on-chain.
 - `scripts/verify.sh` now returns failure when a command fails or a Rust/program-test summary is
   missing.
+- `create_arena` rejects any asset or quote mint carrying a Token-2022 extension outside the
+  `MetadataPointer` / `TokenMetadata` allowlist (`UnsafeMintExtension`). An allowlist rather than a
+  denylist, so an unrecognised or future extension fails closed. Legacy SPL Token mints have no
+  extension area and pass without inspection. This enforces the unrestricted devnet copy §3.1
+  already required, at the one point every match routes through — see §3.1 for why the alternative
+  (reproducing the fee and switching to received-amount accounting) was rejected.
+- Repository published at `https://github.com/Raveesh1007/PVParena`, branch `main`, 116 files in the
+  initial commit. `.gitignore` extended to cover `.anchor/`, `*.tsbuildinfo`, `.env*` with an
+  `!.env.example` negation, and `**/*keypair*.json`. Staged content was scanned for credentials
+  before the push; `.env`, keypairs and build output are absent from the pushed tree.
+- Comment narration removed repo-wide per the `AGENTS.md` code-clarity rules: file-top `//!` and
+  `/** */` essays that restated this spec are gone from 6 Rust and 34 TypeScript files, and
+  multi-paragraph item docs are compressed to the fact the signature does not carry. Comments
+  encoding an invisible constraint were kept — the BPF stack-frame reason for boxed accounts, the
+  confidence cross-multiply, the Token-2022 extension-ordering rule, and the `allow(deprecated)`
+  rationale with its `ponytail:` marker.
+
+**Added 23 Sep 2026:**
+
+- **Benchmark switched NVDA → TSLA** (user: any public stock is acceptable). NVDA is not on the Pyth
+  trial; TSLA is, with the same exponent (−5), so no program change. `.env`, `.env.example`,
+  `config/arenas.json`, the `env.ts` default, §2, §3.2, §5.5, §12, §13, §18 and `AGENTS.md` updated.
+- **All four Pyth gates (5–8) verified.** Hermes Core returned TSLA with the key; a live update was
+  posted to devnet through the receiver, read back identical and fully verified, then closed. Evidence
+  and signatures in `docs/integration-readiness.md`.
+- **Worker bug fixed** (`apps/worker/src/pyth.ts`): `tightComputeBudget: true` removed — every real
+  `activate_match`/`settle_match` would have run out of compute (§3.2). Bankrun tests could not see it
+  because they bypass the receiver SDK.
+- **Round prompts carry price history** (`apps/worker/src/agents.ts` `priceHistory`, wired in
+  `tick.ts`): start price from chain plus the price both agents saw in each earlier round, read from
+  saved `AgentTurn` rows. Known gap, marked `ponytail:`: a round where both agents failed left no
+  parsed observation and is omitted. Scoring is unchanged (20/30/50 weighted, §5.6).
+- **Devnet assets created** by the new re-runnable `scripts/setup-devnet.ts` (gates 1, 3, 4, 13):
+  OPENAI devnet copy `8u5symXKPiA5wvUzkEy8HKS184j2of29ZkWwkiqUDkHV` (Token-2022, 9 decimals,
+  MetadataPointer + TokenMetadata only, no freeze authority) and `USDC-DEV`
+  `9XfmajjGiw7u4UmWHJM9CZ14NpJnbB5F7Kv3AH1pbUiW` (6 decimals, same extensions). Each player holds 100
+  OPENAI-DEV and 100,000 USDC-DEV. Circle devnet USDC was not used (captcha-gated faucet).
+- **Wallet roles** (user-approved; keypairs live in WSL `~/.config/solana/`, never in the repo):
+
+  | Role           | Address                                        | Keypair file                                          |
+  | -------------- | ---------------------------------------------- | ----------------------------------------------------- |
+  | Deploy / admin | `ChiKEw62eYHh4QnWwCHbzk12CwM4gdyJgTUAcA1fTWsH` | `id.json` (also `ADMIN_WALLET`, `Anchor.toml` wallet) |
+  | Orchestrator   | `B5yRr7xG5Rm7SbwM2k8swGrM6A35nRQ43QF42nEEMndM` | `stock-arena-orchestrator.json` (in `.env`)           |
+  | Player A       | `4TafDy66p9jT9Fn58vC6JM1Pw5yeGVfJtYskMgyH9cno` | `devnet-keypair.json`                                 |
+  | Player B       | `88Tq3dYiim1nuegSAMNkNtU9cmfRP4fiYYe8Ksp87ArG` | Windows `C:\Users\Raveessh\.config\solana\id.json`    |
+
+  None holds mainnet SOL. Program ID `8xYafVKnRmi99cRPQV2TLRHRH2MsfjZtJH4DMy8anHiC` is **not yet
+  deployed**.
+
+- `AGENTS.md` restructured: Frontend design workflow moved out of Non-negotiable decisions,
+  double-spacing removed (now passes Prettier), verification section notes `scripts/verify.sh` and
+  the missing `lint`/integration scripts.
 
 Jev (`jev-1.13.0`) was consulted on the mutable-protocol-limit choice. It selected per-Match
 snapshotting with confidence 1.0; that is the implementation above.
 
 ### Verification evidence
 
-Last successful local runs on 21 Sep 2026:
+23 Sep 2026, after the worker changes: `npm test` PASS — **61 tests, 8 files** (new price-history
+test); `npm run typecheck` PASS; Prettier PASS on every touched file. Program tests were not re-run —
+no Rust changed.
+
+Last successful local runs on 22 Sep 2026 (after the mint guard and the comment pass):
+
+- `cargo fmt --all -- --check`: PASS.
+- `cargo clippy --workspace --all-targets -- -D warnings`: PASS, no warnings.
+- `anchor build`: PASS.
+- Program tests under WSL/bankrun: PASS — **86 tests, 2 files** (85 before, plus the
+  `UnsafeMintExtension` rejection test).
+- `npm test`: PASS — **60 tests, 8 files**.
+- `npm run typecheck`: PASS.
+- `npm run lint`: still unavailable; no `lint` script exists.
+- `npm run build`, `npm run format:check` (repo-wide): not re-run after the comment pass.
+
+Earlier runs on 21 Sep 2026:
 
 - `bash scripts/verify.sh`: PASS — `anchor build`, `cargo fmt --all -- --check`,
   `cargo clippy --workspace --all-targets -- -D warnings`, 14 Rust unit tests and 85 bankrun program
@@ -681,11 +764,14 @@ Last successful local runs on 21 Sep 2026:
 
 ### Remaining before §16 is complete
 
-- Every `docs/integration-readiness.md` §13 gate remains UNVERIFIED: live PreStocks response and
-  mainnet mint inspection, labelled OPENAI devnet copy, quote mint, official Core feed ID,
-  authenticated Hermes access, devnet post/read, ClawPump model/credit/empty-agent evidence,
-  Champion clarification and devnet wallet funding.
-- No program deployment or clean two-wallet devnet rehearsal has been recorded.
+- **Next step: deploy and initialize on devnet.** Deploy `stock_arena` with the deploy wallet, run
+  `initialize_protocol` (admin `ChiK…`, orchestrator `B5yR…`), then `create_arena` for OPENAI with the
+  TSLA Core ID and `USDC-DEV` as quote. Both mints already satisfy the extension allowlist.
+- **ClawPump is the last external blocker** (gates 9–10): `CLAWPUMP_API_KEY` is empty; need the
+  `cpk_` key, a verified paid model and credit, then one strict-JSON call from an empty agent. Gate 12
+  (Champion) stays optional.
+- Every other §13 gate is VERIFIED or ANSWERED as of 23 Sep (`docs/integration-readiness.md`).
+- No clean two-wallet devnet rehearsal has been recorded.
 - The web app is read-only and does not yet provide wallet connection or client-side transaction
   builders for create, join, claim, refund, exercise and expiry reclaim.
 - Worker recovery still needs confirmed-signature persistence and chain-state-aware recovery for
@@ -694,9 +780,16 @@ Last successful local runs on 21 Sep 2026:
 - Arena UI still needs live benchmark freshness on the Arena page, the exact stale-feed disable
   behavior, create/join forms and player action controls. Proof evidence still needs Pyth posting and
   settlement signatures, verified agent-wallet balance evidence and explorer links.
-- `README.md` still describes the pre-settlement baseline and must be updated after the next stable
-  milestone. Formatting now passes; a `lint` script must exist and pass before completion can be
+- `README.md` still describes the pre-settlement baseline (a devnet-setup step was added 23 Sep) and
+  should be updated before judging. A `lint` script must exist and pass before completion can be
   claimed.
+- `AGENTS.md` still has two stale spots: its Stop conditions reference the resolved "Meteora
+  requirement" and `/pump-pairs` (§3.4 superseded both), and it does not state the §3.1 rule that a
+  devnet copy may carry only the metadata extensions.
+- The Pyth API key was pasted into a chat transcript on 23 Sep; rotate it before judging and update
+  `.env` only.
+- `DESIGN.md` is the authoritative visual specification per `AGENTS.md`, and must be read completely
+  before the create/join forms, wallet connection or Arena stale-feed UI are built.
 - `transcriptFilters` returns `OR: []` for a match that has not activated, which relies on an empty
   `OR` matching no rows. Both callers guard with the activation check first, so nothing depends on
   it today — but removing that guard would make strategy visibility rest on an untested library

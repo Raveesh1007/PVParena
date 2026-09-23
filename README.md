@@ -67,6 +67,13 @@ npm install
 cp .env.example .env    # then fill it in; never commit .env
 ```
 
+Devnet assets: create the labelled test copy of a PreStocks token and the `USDC-DEV` quote mint,
+fund both demo players, and write the mints to `config/arenas.json` and `.env`. Re-runnable.
+
+```sh
+SYMBOL=OPENAI AUTHORITY_KEYPAIR=~/.config/solana/id.json   PLAYERS=<playerA>,<playerB> npx vite-node scripts/setup-devnet.ts
+```
+
 ## Verification
 
 TypeScript, from Windows or WSL:
@@ -142,4 +149,5 @@ the demo auditable instead. Do not describe this as trustless.
 
 Everything on devnet is free. Real money is only ever spent on ClawPump paid-model credit and, if
 that bounty is attempted at all, an explicitly approved mainnet Champion launch.
+
 # PVParena

@@ -4,42 +4,99 @@ Phase 0 evidence for the gates in `code.md` §13. Every row starts UNVERIFIED an
 changed by someone who actually ran the check and pasted the evidence. A blocking failure is
 reported, never hidden behind mock data in the sponsor demo.
 
-Last updated: 2026-09-22
+Last updated: 2026-09-23
 
-| #   | Gate                                                                          | Status       | Evidence                                                             |
-| --- | ----------------------------------------------------------------------------- | ------------ | -------------------------------------------------------------------- |
-| 1   | PreStocks API returns the current OpenAI record                               | UNVERIFIED   |                                                                      |
-| 2   | Real mainnet mint inspected: token program, decimals, authorities, extensions | **VERIFIED** | OPENAI, 22 Sep 2026 — see "Mainnet mint inspection" below            |
-| 3   | Labelled devnet test copy created; two demo wallets funded                    | UNVERIFIED   |                                                                      |
-| 4   | Circle devnet USDC verified, or `USDC-DEV` (6 decimals) created               | UNVERIFIED   |                                                                      |
-| 5   | `app.pyth.com` account + API key; trial expiry outlasts 2 Oct 2026            | UNVERIFIED   |                                                                      |
-| 6   | Official 32-byte Core feed ID resolved for the chosen symbol                  | UNVERIFIED   |                                                                      |
-| 7   | Authenticated Hermes fetch succeeds at `pyth.dourolabs.app/hermes`            | UNVERIFIED   |                                                                      |
-| 8   | Update posted to and read from Solana devnet                                  | UNVERIFIED   |                                                                      |
-| 9   | `cpk_` key, verified paid model, sufficient credit                            | UNVERIFIED   |                                                                      |
-| 10  | Empty `monitor-exit` battle agent completes one strict-JSON call, no tool use | UNVERIFIED   |                                                                      |
-| 11  | ClawPump answered the Pump.fun-versus-Meteora question                        | **ANSWERED** | Discord, Tomi204, 20–22 Sep 2026 — see "ClawPump launch route" below |
-| 12  | `/pump-pairs` lists an eligible stock mint; launch preflight recorded unpaid  | UNVERIFIED   |                                                                      |
-| 13  | Devnet SOL collected for both demo wallets and the deploy wallet              | UNVERIFIED   |                                                                      |
+| #   | Gate                                                                          | Status       | Evidence                                                                       |
+| --- | ----------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------ |
+| 1   | PreStocks API returns the current OpenAI record                               | **VERIFIED** | 23 Sep 2026: 8 tokens; OPENAI mint matches gate 2 — see "Devnet assets" below  |
+| 2   | Real mainnet mint inspected: token program, decimals, authorities, extensions | **VERIFIED** | OPENAI, 22 Sep 2026 — see "Mainnet mint inspection" below                      |
+| 3   | Labelled devnet test copy created; two demo wallets funded                    | **VERIFIED** | `8u5symXKPiA5wvUzkEy8HKS184j2of29ZkWwkiqUDkHV`, 100 each — see "Devnet assets" |
+| 4   | Circle devnet USDC verified, or `USDC-DEV` (6 decimals) created               | **VERIFIED** | `USDC-DEV` `9XfmajjGiw7u4UmWHJM9CZ14NpJnbB5F7Kv3AH1pbUiW`, 100,000 each        |
+| 5   | `app.pyth.com` account + API key; trial expiry outlasts 2 Oct 2026            | **VERIFIED** | Trial ends ~6 Oct (13 days left on 23 Sep); key works — see below              |
+| 6   | Official 32-byte Core feed ID resolved for the chosen symbol                  | **VERIFIED** | TSLA, 23 Sep 2026 — see "Benchmark decision" below                             |
+| 7   | Authenticated Hermes fetch succeeds at `pyth.dourolabs.app/hermes`            | **VERIFIED** | TSLA, 23 Sep 2026 08:14 UTC — see below                                        |
+| 8   | Update posted to and read from Solana devnet                                  | **VERIFIED** | TSLA, 23 Sep 2026 08:48 UTC — see "Devnet post/read" below                     |
+| 9   | `cpk_` key, verified paid model, sufficient credit                            | UNVERIFIED   |                                                                                |
+| 10  | Empty `monitor-exit` battle agent completes one strict-JSON call, no tool use | UNVERIFIED   |                                                                                |
+| 11  | ClawPump answered the Pump.fun-versus-Meteora question                        | **ANSWERED** | Discord, Tomi204, 20–22 Sep 2026 — see "ClawPump launch route" below           |
+| 12  | `/pump-pairs` lists an eligible stock mint; launch preflight recorded unpaid  | UNVERIFIED   |                                                                                |
+| 13  | Devnet SOL collected for both demo wallets and the deploy wallet              | **VERIFIED** | 23 Sep 2026: deploy 20.9, player A 5.66, player B 2.00 SOL                     |
 
 ## Benchmark decision
 
-Chosen symbol: **not yet established.**
+Chosen symbol: **`Equity.US.TSLA/USD`** (23 Sep 2026).
 
-`code.md` §3.2 fallback order: `Equity.US.NVDA/USD` → `Equity.US.AAPL/USD` → `Crypto.AAPLX/USD`
-→ `Crypto.AAPLON/USD` → stop and report. A generic crypto feed is never an acceptable fallback.
+The benchmark only has to be a public stock (the user confirmed any stock is acceptable). The Pyth
+Terminal trial grants 21 feeds; the only single stock among them is TSLA (the others are QQQ and VOO,
+both ETFs). NVDA, AAPL, AAPLX and AAPLON are not on the trial. Fallback order is now
+`Equity.US.TSLA/USD` → `Equity.US.QQQ/USD` → `Equity.US.VOO/USD` → stop and report. A generic crypto
+feed is never an acceptable fallback.
 
-| Field                            | Value |
-| -------------------------------- | ----- |
-| Symbol                           |       |
-| Core feed ID (32-byte hex)       |       |
-| Catalogue source URL             |       |
-| Date resolved                    |       |
-| Exponent                         |       |
-| Reason for falling back (if any) |       |
+| Field                            | Value                                                                                                             |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Symbol                           | `Equity.US.TSLA/USD` (TESLA INC / US DOLLAR, spot, min publishers 2, state stable)                                |
+| Core feed ID (32-byte hex)       | `0x16dad506d7db8da01c87581c87ca897a012a153557d4d578c3b9c9e1bc0632f1`                                              |
+| Catalogue source URL             | `history.pyth-lazer.dourolabs.app/history/v1/symbols` (`hermes_id`), matches `hermes.pyth.network/v2/price_feeds` |
+| Date resolved                    | 2026-09-23                                                                                                        |
+| Exponent                         | −5 (same as the program's `BENCHMARK_EXPONENT`; no program change)                                                |
+| Reason for falling back (if any) | NVDA not entitled on the Pyth Terminal trial                                                                      |
 
-Terminal IDs 1314 (NVDA) and 922 (AAPL) are Pro/Lazer identifiers. Neither may ever be placed in
-`PYTH_BENCHMARK_FEED_ID`.
+Pro/Terminal ID for TSLA is 1435; like 1314 (NVDA) it is not a Core ID. Regular session is
+09:30–16:00 America/New_York; Pyth Pro also lists pre-market, post-market and overnight sessions.
+Hermes Core pre-market publishing verified 23 Sep 2026 (see below).
+
+**API key (gates 5 and 7), 23 Sep 2026.** The Terminal trial ("Demo") shows 13 days remaining, so
+it ends ~6 Oct, after judging. The Free plan has no API access, so the trial is the only API route.
+
+At 08:14 UTC the key returned TSLA from Hermes Core on both `pyth.dourolabs.app/hermes` and
+`hermes.pyth.network`: price `38060001`, expo −5, conf `8001` (~2 bps), publish time
+2026-09-23 08:14:03Z, 633-byte signed binary update. The Pro History API returned TSLA (1435) with
+`market_session: "preMarket"`, 13 publishers — so the benchmark publishes outside the regular
+session. The Pyth MCP server (`mcp.pyth.network/mcp`) returned the same price.
+
+Two traps, both observed:
+
+- Pyth answers **`invalid API key` for a valid key requesting a feed the plan does not entitle**
+  (NVDA returned it at the same moment TSLA succeeded). Do not read that message as a bad key.
+- Between ~07:00 and 07:25 UTC the same key was rejected everywhere, including for entitled feeds;
+  it worked by 08:13. A freshly issued trial key appears to need time to activate.
+
+## Devnet assets (gates 1, 3, 4, 13 — verified 2026-09-23)
+
+Created by `scripts/setup-devnet.ts` (re-run confirmed idempotent: both mints reused, nothing minted).
+
+| Role           | Address                                        | Devnet SOL (23 Sep) |
+| -------------- | ---------------------------------------------- | ------------------- |
+| Deploy / admin | `ChiKEw62eYHh4QnWwCHbzk12CwM4gdyJgTUAcA1fTWsH` | 20.9                |
+| Orchestrator   | `B5yRr7xG5Rm7SbwM2k8swGrM6A35nRQ43QF42nEEMndM` | 0.995               |
+| Player A       | `4TafDy66p9jT9Fn58vC6JM1Pw5yeGVfJtYskMgyH9cno` | 5.66                |
+| Player B       | `88Tq3dYiim1nuegSAMNkNtU9cmfRP4fiYYe8Ksp87ArG` | 2.00                |
+
+| Mint                                                        | Label                                       | Decimals | Extensions                     | Freeze | Per player |
+| ----------------------------------------------------------- | ------------------------------------------- | -------- | ------------------------------ | ------ | ---------- |
+| `8u5symXKPiA5wvUzkEy8HKS184j2of29ZkWwkiqUDkHV` (Token-2022) | `OPENAI (devnet test copy)` / `OPENAI-DEV`  | 9        | MetadataPointer, TokenMetadata | none   | 100        |
+| `9XfmajjGiw7u4UmWHJM9CZ14NpJnbB5F7Kv3AH1pbUiW` (Token-2022) | `USDC-DEV (devnet test quote)` / `USDC-DEV` | 6        | MetadataPointer, TokenMetadata | none   | 100,000    |
+
+Both mints carry only the extensions `create_arena` allows. Mint authority is the deploy wallet.
+Circle devnet USDC was not used: its faucet is a captcha-gated web page, and §2 permits a labelled
+six-decimal `USDC-DEV`.
+
+## Devnet post/read (gate 8, verified 2026-09-23)
+
+A live Hermes TSLA update was posted through the Pyth receiver
+(`rec5EKMGg6MxZYaMdyBfgwp4d5rB9T1VQH5pJv5LtFJ`) on devnet by the orchestrator
+`B5yRr7xG5Rm7SbwM2k8swGrM6A35nRQ43QF42nEEMndM`, read back, and closed.
+
+| Field                 | Value                                                                                                                                                                                |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| PriceUpdateV2 account | `7mERnirR6x9uwCaF6BY5ZauMURdu5hQgQJeZVwCjPkNo` (owner: receiver)                                                                                                                     |
+| Post signatures       | `D55eBFzjuzArW81VQX78SqcDqBz3LdziiUNbbiS5e4aJZHfpJ25wHfMoDLNFfdtKd35yZv6jdHAZzvQaJ5spboW`, `DouUhyRM7SGhkrSrB1KPJQVPUcXoYt6CAw7Td8CPDSg4LepEKtYEKSg8NAWW9EsBdkxc3FAJkB7r3BEt7zUexPu` |
+| Read back             | feed `0x16dad506…32f1`, price `38075000`, expo −5, conf `8000`, publish `1790152084` — identical to Hermes; verification level `Full`                                                |
+| Close signature       | `2iXp4FRNKG4MVL6sS1UNSaFejTtVqa4A62utNQrjPr3Yud4XDSV1nynGpApDexm1udAQCHGyETFEF9jc1MoiWy2J`                                                                                           |
+| Net cost              | 0.00243273 devnet SOL (rent reclaimed on close)                                                                                                                                      |
+
+`tightComputeBudget: true` fails: the SDK caps the transaction at its 35,000-unit `PostUpdate`
+estimate, which `PostUpdate` itself nearly exhausts (34,966). The worker no longer sets it.
 
 ## Mainnet mint inspection — OPENAI (verified 2026-09-22)
 

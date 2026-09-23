@@ -51,7 +51,7 @@ export function loadIntegrationConfig(): IntegrationConfig {
     prestocksUrl: optional('PRESTOCKS_API_URL', 'https://prestocks.com/api/prestocks'),
     hermesUrl: optional('PYTH_HERMES_URL', 'https://pyth.dourolabs.app/hermes'),
     pythApiKey: required('PYTH_API_KEY'),
-    benchmarkSymbol: optional('PYTH_BENCHMARK_SYMBOL', 'Equity.US.NVDA/USD'),
+    benchmarkSymbol: optional('PYTH_BENCHMARK_SYMBOL', 'Equity.US.TSLA/USD'),
     benchmarkFeedId: assertCoreFeedId(required('PYTH_BENCHMARK_FEED_ID')),
     benchmarkExponent: exponent,
     clawpumpBaseUrl: optional('CLAWPUMP_BASE_URL', 'https://clawpump.tech/api/v1'),

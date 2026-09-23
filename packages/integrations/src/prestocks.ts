@@ -5,7 +5,7 @@ import { fetchJson } from './http.js';
 export const PRESTOCKS_SYMBOLS = [
   'ANDURIL',
   'ANTHROPIC',
-  'FIGURE_AI',
+  'FIGUREAI',
   'KALSHI',
   'NEURALINK',
   'OPENAI',

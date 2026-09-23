@@ -10,7 +10,7 @@ import {
   fetchActionableMatches,
   stateOf,
 } from './chain.js';
-import { type RoundPlayer, runRoundTurns } from './agents.js';
+import { type RoundPlayer, priceHistory, runRoundTurns } from './agents.js';
 import type { WorkerConfig } from './config.js';
 import { jobKeys, withJobLease } from './jobs.js';
 import { readBenchmark, withPriceUpdate } from './pyth.js';
@@ -186,6 +186,7 @@ async function submitRound(
       matchPda: pda,
       round,
       observed,
+      history: await priceHistory(db, pda, round, account.startObservation),
       targetPublishTime: toSeconds(account.targetEndTs),
       benchmarkSymbol: config.benchmarkSymbol,
       benchmarkFeedId: config.benchmarkFeedId,

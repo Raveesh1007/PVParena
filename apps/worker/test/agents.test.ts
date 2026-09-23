@@ -3,7 +3,13 @@ import { Prisma, type PrismaClient } from '@prisma/client';
 import { Keypair, type Connection } from '@solana/web3.js';
 import { computeCommitment } from '@stock-arena/shared';
 import { requestPrediction, createBattleAgent } from '@stock-arena/integrations';
-import { runRoundTurns, type RoundContext, type RoundPlayer } from '../src/agents.js';
+import {
+  buildPrompt,
+  priceHistory,
+  runRoundTurns,
+  type RoundContext,
+  type RoundPlayer,
+} from '../src/agents.js';
 import type { WorkerConfig } from '../src/config.js';
 
 vi.mock('@stock-arena/integrations', () => ({
@@ -17,6 +23,7 @@ const context: RoundContext = {
   matchPda: Keypair.generate().publicKey,
   round: 0,
   observed: { price: '100', conf: '1', exponent: -5, publishTime: 1000 },
+  history: [],
   targetPublishTime: 1540,
   benchmarkSymbol: 'Equity.US.NVDA/USD',
   benchmarkFeedId: 'ab'.repeat(32),
@@ -132,5 +139,38 @@ describe('durable agent turns', () => {
     const resumed = await runRoundTurns(db, config, connection, context, players);
     expect(resumed.map((turn) => turn.parsed.outcome)).toEqual(['apiError', 'apiError']);
     expect(requestPrediction).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('price history', () => {
+  it('gives each round the start price and every earlier round both agents saw', async () => {
+    const seen = (round: number, price: string) => ({
+      round,
+      parsedPrediction: {
+        observedPrice: price,
+        observedExponent: -5,
+        observedPublishTime: 1000 + round,
+      },
+    });
+    // Round 1 appears twice (one row per player); round 0 is absent, as if both agents failed.
+    const findMany = vi.fn(async () => [seen(1, '103'), seen(1, '103')]);
+    const db = { agentTurn: { findMany } } as unknown as PrismaClient;
+    const history = await priceHistory(db, context.matchPda, 2, {
+      price: '99',
+      exponent: -5,
+      publishTime: '990',
+    });
+    expect(findMany).toHaveBeenCalledWith({
+      where: { matchPda: context.matchPda.toBase58(), round: { lt: 2 }, outcome: 'Valid' },
+    });
+    expect(history).toEqual([
+      { label: 'Match start', price: '99', exponent: -5, publishTime: 990 },
+      { label: 'Round 1', price: '103', exponent: -5, publishTime: 1001 },
+    ]);
+
+    const prompt = buildPrompt({ ...context, round: 2, history }, strategy);
+    expect(prompt).toContain('- Match start: 99 at exponent -5, published 990');
+    expect(prompt).toContain('- Round 1: 103 at exponent -5, published 1001');
+    expect(prompt).toContain('- Now: 100 at exponent -5, published 1000');
   });
 });
