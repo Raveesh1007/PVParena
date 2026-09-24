@@ -1,7 +1,11 @@
 import { playableArenas } from '@stock-arena/integrations';
 
-import { BenchmarkCard, Row, StaleFeedNotice, formatPrice } from '@/components/cards';
+import { BenchmarkCard, Row, StaleFeedNotice } from '@/components/cards';
+import { ArenaPicker } from '@/components/arena-picker';
+import { loadBenchmark } from '@/lib/benchmark';
+import { formatPrice, stamp } from '@/lib/format';
 import { arenaRegistry } from '@/lib/server';
+import { Beam } from '@/components/beam';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,38 +13,40 @@ export default async function Home() {
   const registry = arenaRegistry();
   const arenas = playableArenas(registry);
 
-  // Read through our own route so the page and the public API cannot disagree about staleness.
   const benchmark = await loadBenchmark();
 
   return (
-    <div className="space-y-10">
-      <section>
-        <h1 className="text-3xl font-semibold tracking-tight">
-          Stake a pre-IPO token. Send an agent to predict a stock.
+    <div className="space-y-12">
+      <section className="pb-4 pt-8">
+        <p className="eyebrow">PvP market prediction · Solana devnet</p>
+        <h1 className="mt-4 max-w-4xl font-display text-[44px] font-normal leading-[1.05] tracking-tight sm:text-[56px]">
+          Stake a pre-IPO token.{' '}
+          <span className="text-text-secondary">Send an agent to predict a stock.</span>
         </h1>
-        <p className="mt-3 max-w-2xl text-neutral-300">
-          Two players escrow equal amounts of the same devnet test token and each supplies a
-          strategy for an empty-wallet battle agent. The agents make three timed predictions of a
-          public stock benchmark. Pyth supplies the price and the program picks the winner
-          deterministically — the winner gets their stake back plus a short-lived option to buy the
-          loser&rsquo;s position at a strike both players signed before the match.
+        <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-text-secondary">
+          Two players escrow devnet test copies of PreStocks tokens and each write a strategy for an
+          AI agent. The agents predict a public stock three times; Pyth supplies the price and the
+          program picks the winner. The winner takes back their stake plus a short option to buy the
+          loser&rsquo;s at a strike both signed up front.
         </p>
-        <p className="mt-4 flex flex-wrap gap-2 text-xs text-neutral-400">
+        <ul className="mt-8 grid max-w-3xl grid-cols-2 border-t border-border-subtle sm:grid-cols-4">
           {[
-            'PreStocks — the asset',
-            'ClawPump — the fighters',
-            'Pyth — the benchmark',
-            'Solana — escrow and settlement',
-          ].map((item) => (
-            <span key={item} className="rounded border border-neutral-800 px-2 py-1">
-              {item}
-            </span>
+            ['PreStocks', 'the asset'],
+            ['ClawPump', 'the fighters'],
+            ['Pyth', 'the benchmark'],
+            ['Solana', 'escrow and settlement'],
+          ].map(([name, role]) => (
+            <li key={name} className="border-b border-border-subtle py-3 pr-4">
+              <span className="block text-sm text-text-primary">{name}</span>
+              <span className="eyebrow">{role}</span>
+            </li>
           ))}
-        </p>
+        </ul>
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-xl font-semibold">Benchmark</h2>
+        <p className="eyebrow">01 / Benchmark</p>
+        <h2 className="title-section">The stock the agents predict</h2>
         {benchmark.stale ? <StaleFeedNotice /> : null}
         <BenchmarkCard title={benchmark.symbol || 'Not yet configured'}>
           <Row label="Core feed ID" value={benchmark.coreFeedId || '—'} />
@@ -51,83 +57,33 @@ export default async function Home() {
             }
           />
           <Row
-            label="Published"
+            label="Confidence"
             value={
-              benchmark.publishTime === null
-                ? '—'
-                : new Date(benchmark.publishTime * 1000)
-                    .toISOString()
-                    .replace('T', ' ')
-                    .slice(0, 19)
+              benchmark.confidence ? formatPrice(benchmark.confidence, benchmark.exponent) : '—'
             }
+          />
+          <Row
+            label="Published"
+            value={benchmark.publishTime === null ? '—' : stamp(benchmark.publishTime)}
           />
         </BenchmarkCard>
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-xl font-semibold">Arenas</h2>
+        <p className="eyebrow">02 / Arenas</p>
+        <h2 className="title-section">Pick the token you stake</h2>
         {arenas.length === 0 ? (
-          <p className="rounded border border-neutral-800 bg-neutral-900/40 px-3 py-6 text-sm text-neutral-400">
-            No Arena is playable yet. Each one needs its real mainnet mint resolved and a labelled
-            devnet test copy created by the setup scripts — mints are never hand-written into
-            <code className="mx-1 rounded bg-neutral-800 px-1">config/arenas.json</code>.
-          </p>
+          <Beam>
+            <p className="rounded-surface border border-border-subtle bg-surface-1 px-3 py-6 text-sm text-text-secondary">
+              No Arena is playable yet. Each one needs its real mainnet mint resolved and a labelled
+              devnet test copy created by the setup scripts — mints are never hand-written into
+              <code className="mx-1 rounded-control bg-surface-2 px-1">config/arenas.json</code>.
+            </p>
+          </Beam>
         ) : (
-          <ul className="grid gap-3 sm:grid-cols-2">
-            {arenas.map((arena) => (
-              <li key={arena.symbol}>
-                <a
-                  href={`/arena/${arena.symbol}`}
-                  className="block rounded-lg border border-neutral-800 bg-neutral-900/40 p-4 transition hover:border-neutral-600"
-                >
-                  <div className="text-base font-semibold">{arena.symbol}</div>
-                  <div className="mt-1 font-mono text-[11px] text-neutral-500">
-                    devnet copy {arena.devnetTestMint.slice(0, 8)}…
-                  </div>
-                  {arena.note ? (
-                    <div className="mt-2 text-xs text-neutral-400">{arena.note}</div>
-                  ) : null}
-                </a>
-              </li>
-            ))}
-          </ul>
+          <ArenaPicker arenas={arenas} />
         )}
       </section>
     </div>
   );
-}
-
-async function loadBenchmark() {
-  const registry = arenaRegistry();
-  const { fetchLatestPrice, isStale, optional } = await import('@stock-arena/integrations');
-  try {
-    const latest = await fetchLatestPrice({
-      baseUrl: optional('PYTH_HERMES_URL', 'https://pyth.dourolabs.app/hermes'),
-      apiKey: process.env.PYTH_API_KEY ?? '',
-      feedId: optional('PYTH_BENCHMARK_FEED_ID', registry.benchmark.coreFeedId),
-    });
-    return {
-      symbol: registry.benchmark.symbol,
-      coreFeedId: latest.feedId,
-      price: latest.price as string | null,
-      exponent: latest.exponent,
-      publishTime: latest.publishTime as number | null,
-      stale: isStale(
-        latest,
-        Number(optional('BENCHMARK_MAX_AGE_SECONDS', '60')),
-        Math.floor(Date.now() / 1000),
-      ),
-    };
-  } catch {
-    // Unreachable and stale look the same to a player: no new matches either way, and no guess
-    // about when that changes.
-    return {
-      symbol: registry.benchmark.symbol,
-      coreFeedId: registry.benchmark.coreFeedId,
-      price: null,
-      exponent: registry.benchmark.exponent,
-      publishTime: null,
-      stale: true,
-    };
-  }
 }

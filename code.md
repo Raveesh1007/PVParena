@@ -8,42 +8,43 @@ PreStocks; ClawPump only if its bounty is confirmed.
 
 ## 1. Product
 
-Two players escrow **equal amounts of the same** devnet test copy of a PreStocks pre-IPO token. Each
-supplies a strategy for an empty-wallet ClawPump agent. The agents make three timed predictions of a
+Two players escrow devnet test copies of a PreStocks pre-IPO token or an xStocks tokenized stock —
+the same token or two different ones, at least 0.05 of each. Each supplies a strategy for an empty-wallet ClawPump agent. The agents make three timed predictions of a
 **public stock benchmark**; Pyth supplies it and the program picks the winner deterministically.
 
 Winner gets their own position back plus a short-lived **Battle Option**: the right to buy the
-loser's position for the exact USDC strike both signed pre-match. On expiry the loser reclaims.
+loser's position for the exact USDC strike set for that stake pre-match. On expiry the loser reclaims.
 
 > PreStocks the asset, ClawPump the fighters, Pyth the benchmark, Solana escrow and settlement — the
 > player supplies the strategy.
 
 ## 2. Fixed decisions — must not drift
 
-|                   |                                                                                                             |
-| ----------------- | ----------------------------------------------------------------------------------------------------------- |
-| Network           | devnet only; never deploy this program to mainnet                                                           |
-| Arena assets      | devnet test copies of PreStocks tokens, never real mainnet assets                                           |
-| Arena registry    | **configuration, not code** — `config/arenas.json`                                                          |
-| Tokens            | the eight in the PreStocks API: ANDURIL, ANTHROPIC, FIGUREAI, KALSHI, NEURALINK, OPENAI, POLYMARKET, SPACEX |
-| Order             | **OPENAI end to end first**; the other seven are scripts afterwards, and the first cut if Thursday slips    |
-| Duels             | **same-token only**                                                                                         |
-| Benchmark         | one public stock feed (TSLA) for all Arenas; per-Arena benchmarks supported                                 |
-| Quote             | verified Circle devnet USDC, else labelled six-decimal `USDC-DEV`                                           |
-| DB                | PostgreSQL, never SQLite                                                                                    |
-| Auth              | none; wallet-signed transactions authorize financial actions                                                |
-| Predictions       | no commit–reveal; both players' results submit atomically                                                   |
-| Strategies        | salted commitments, hashed in **TypeScript only**                                                           |
-| Length            | standard 15 min, demo 9 min, minimum 9 min                                                                  |
-| Sessions          | **no market-session subsystem** (§5.2); staleness is the only availability guard                            |
-| Agents            | empty wallets, always                                                                                       |
-| Worker            | independent process at `apps/worker`, never a route in the web app                                          |
-| Champion          | separate from the devnet game; explicit approval before real SOL                                            |
-| Instructions file | `AGENTS.md` only; never create `agent.md`                                                                   |
+|                   |                                                                                                          |
+| ----------------- | -------------------------------------------------------------------------------------------------------- |
+| Network           | devnet only; never deploy this program to mainnet                                                        |
+| Arena assets      | devnet test copies of PreStocks and xStocks tokens, never real mainnet assets                            |
+| Arena registry    | **configuration, not code** — `config/arenas.json`                                                       |
+| Tokens            | OPENAI (PreStocks, pre-IPO) and AAPLX (xStocks, tokenized stock); other PreStocks tokens are config only |
+| Order             | **OPENAI end to end first**; the other seven are scripts afterwards, and the first cut if Thursday slips |
+| Duels             | **cross-token**: any two Arenas sharing benchmark and quote; minimum stake 0.05 tokens per side          |
+| Benchmark         | one public stock feed (TSLA) for all Arenas; per-Arena benchmarks supported                              |
+| Quote             | verified Circle devnet USDC, else labelled six-decimal `USDC-DEV`                                        |
+| DB                | PostgreSQL, never SQLite                                                                                 |
+| Auth              | none; wallet-signed transactions authorize financial actions                                             |
+| Predictions       | no commit–reveal; both players' results submit atomically                                                |
+| Strategies        | salted commitments, hashed in **TypeScript only**                                                        |
+| Length            | standard 15 min, demo 9 min, minimum 9 min                                                               |
+| Sessions          | **no market-session subsystem** (§5.2); staleness is the only availability guard                         |
+| Agents            | empty wallets, always                                                                                    |
+| Worker            | independent process at `apps/worker`, never a route in the web app                                       |
+| Champion          | separate from the devnet game; explicit approval before real SOL                                         |
+| Instructions file | `AGENTS.md` only; never create `agent.md`                                                                |
 
-**Same-token, because** equal stakes across two tokens means equal _dollar value_, and no pre-IPO
-token has a price the program can trust (`markPrice` is off-chain). §19 removes this constraint
-post-hackathon. **Pause is global** — one `ProtocolConfig`, so `set_paused` freezes every Arena.
+**Cross-token without an oracle** (§19): the creator fixes both stake amounts and **two USDC strikes**,
+one per possible loser, before any deposit; the challenger accepts them unchanged. Fairness comes from
+those agreed prices, never from a token price — no pre-IPO token has one the program could trust
+(`markPrice` is off-chain). **Pause is global** — one `ProtocolConfig`, so `set_paused` freezes every Arena.
 
 ## 3. Sponsor integration
 
@@ -275,8 +276,8 @@ become visible only at activation. This is **not** prediction commit–reveal.
 
 ### 5.4 Lifecycle
 
-`create_match` (A stakes, → **Open**) → `join_match` (B reviews immutable terms, stakes the same token
-and quantity, → **Ready**) → worker posts a fresh update and calls `activate_match`, recording start
+`create_match` (A names both stakes and both strikes and deposits, → **Open**) → `join_match` (B
+reviews immutable terms and deposits exactly the named token and amount, → **Ready**) → worker posts a fresh update and calls `activate_match`, recording start
 price/time and all absolute round, target, settlement and expiry timestamps (→ **Active**) → per round
 the worker calls both agents concurrently then one atomic `submit_round_predictions` → at the target
 the worker posts a final update and calls `settle_match`, which validates Pyth, computes both scores
@@ -359,14 +360,15 @@ program; **32-byte Core feed ID**; normalization exponent; standard and demo pro
 weights; `max_price_age_seconds`; `max_confidence_bps`; `active`; `bump`. Keying by feed as well as
 mint lets one collateral host several Arenas differing only in the battle stock.
 
-**Match** — `[b"match", creator, match_nonce_le]`: creator, challenger, arena, nonce; stake amount and
-exact quote strike; profile; both strategy commitments; created/join/activation deadlines; start,
+**Match** — `[b"match", creator, match_nonce_le]`: creator, challenger, creator's `arena` (governs
+benchmark, timing and quote) and `challenger_arena`, nonce; both stake amounts and both quote strikes
+(the price of each stake); profile; both strategy commitments; created/join/activation deadlines; start,
 three round, target, settlement-deadline and option-expiry timestamps; start and final observation
 (price, exponent, confidence, publish time); two predictions and outcome codes per round;
 submitted-round bitmap; both scores; winner; state; claim/exercise/refund flags; recorded deposit per
 player; `bump`. Strategy text, theses, prompts and raw responses stay off-chain.
 
-**Vaults** — Arena-asset ATA owned by the Match PDA. **No persistent quote vault:** quote moves
+**Vaults** — one ATA per staked mint, owned by the Match PDA; a same-token duel shares one. **No persistent quote vault:** quote moves
 directly winner → loser on exercise, creating the loser's quote account if absent with the winner
 paying rent. Entitlements derive from **recorded deposits, never raw vault balance**, so an unsolicited
 transfer grants nobody anything.
@@ -398,10 +400,11 @@ the timeline.
 
 ### 7.4 Invariants
 
-Creator ≠ challenger, both signers · both deposits use the exact mint, token program and amount ·
+Creator ≠ challenger, both signers · each deposit uses its Arena's exact mint and token program and
+the exact amount the creator named · both Arenas share benchmark feed, exponent and quote mint ·
 Arena asset and quote mints carry no Token-2022 extension outside the metadata allowlist, so sent
 equals received and no delegate can reach the vault (§3.1) ·
-stake and strike nonzero and in range, no economic cap · terms and commitments immutable after join ·
+each stake at least 0.05 tokens in its own decimals, strikes nonzero, no economic cap · terms and commitments immutable after join ·
 only the orchestrator activates and submits · anyone may settle with a valid update after the target ·
 no settlement uses a client-supplied price · Pyth feed, owner, confidence, exponent, positivity and
 window all validated · every multiplication, absolute value, exponent conversion, score and transfer
@@ -439,7 +442,8 @@ Do not add SQLite, Redis, a second database, wallet auth, a timezone library, or
 
 Public: `GET /api/arenas` · `GET /api/prestocks/:symbol` · `GET /api/holdings/:wallet` (read-only
 mainnet balances) · `POST /api/strategies` · `GET /api/matches/:pda` ·
-`GET /api/matches/:pda/transcript`.
+`GET /api/matches/:pda/transcript` · `GET /api/benchmark` (latest Hermes read for the live battle
+chart, server-cached 2 s; never posts an update).
 
 Internal: `POST /api/internal/worker/tick` (`INTERNAL_WORKER_SECRET`) ·
 `POST /api/internal/integrations/verify` (admin/worker secret).
@@ -476,10 +480,10 @@ keys, bearer tokens or unencrypted keypairs.
   escrow card labelled **Devnet test copy** (mint, balance); benchmark card (price, publish time,
   confidence, freshness); open challenges; Create Challenge. Feed stale → §5.2 sentence, new matches
   disabled.
-- **Create/join** — exact token amount; exact quote strike; optional reference suggestion; profile;
+- **Create/join** — both tokens and exact amounts (≥ 0.05 each); both exact quote strikes; optional
+  reference suggestion; profile;
   strategy entry (500 chars, presets "Momentum rider", "Mean reverter", "Volatility fader"); explicit
-  winner/exercise/expiry/refund explanation; immutable term review before signing. Same token both
-  sides.
+  winner/exercise/expiry/refund explanation; immutable term review before signing.
 - **Lobby / live battle** — both wallets and empty-wallet agent identities; commitment verification;
   countdowns from chain timestamps; three-round timeline; predictions shown only after the round
   transaction confirms; agent failure and penalty states; live benchmark price and publish time.
@@ -618,20 +622,21 @@ integration https://docs.pyth.network/price-feeds/core/use-real-time-data/pull-i
 plans https://app.pyth.com/plans · TSLA https://app.pyth.com/explore/Equity.US.TSLA%2FUSD · symbol
 metadata https://history.pyth-lazer.dourolabs.app/history/v1/symbols · ClawPump https://clawpump.tech/developers
 
-## 19. Post-hackathon: cross-token duels
+## 19. Cross-token duels
 
-Not in this build; recorded because the mechanism is non-obvious and would otherwise be
-mis-implemented.
+Built 23 Sep 2026 (user decision, overriding the earlier same-token rule). Recorded because the
+mechanism is non-obvious and would otherwise be mis-implemented.
 
 Two players **can** stake different tokens with **no oracle**, using **two USDC strikes signed before
 deposit**, one per possible winner. The symmetry comes from the pair of prices both players agreed to,
 not from equal collateral value, so no exchange rate and no trusted price is needed. The §2 objection
 applies only to the equal-stakes formulation.
 
-It still costs: a second mint, vault and deposit amount on `Match`; doubled exercise and refund paths;
-a doubled escrow-conservation test matrix; and value-denominated rather than quantity-denominated
-terms if equal value is ever wanted. Deferred because retrofitting it onto a `Match` already built and
-tested around one vault is the risk, not because it cannot work.
+As built: `Match` stores `challenger_arena`, both stake amounts and both strikes; the creator names
+all of them. Each payout (refund, claim, exercise, reclaim) takes the paying player's own Arena and
+is rejected with any other. `join_match` and `exercise_option` create a mint's vault or the winner's
+account for the other token when absent (`init_if_needed`). The Arena layout is unchanged, so existing
+Arenas stayed valid across the in-place upgrade.
 
 A larger variant would make each player's _own_ collateral price matter, needing a Pyth feed per
 staked token. Pre-IPO PreStocks tokens have none; only tokenized public stocks do.
@@ -718,17 +723,132 @@ mark an external integration as verified or a Definition-of-Done item as complet
   | Player A       | `4TafDy66p9jT9Fn58vC6JM1Pw5yeGVfJtYskMgyH9cno` | `devnet-keypair.json`                                 |
   | Player B       | `88Tq3dYiim1nuegSAMNkNtU9cmfRP4fiYYe8Ksp87ArG` | Windows `C:\Users\Raveessh\.config\solana\id.json`    |
 
-  None holds mainnet SOL. Program ID `8xYafVKnRmi99cRPQV2TLRHRH2MsfjZtJH4DMy8anHiC` is **not yet
-  deployed**.
+  None holds mainnet SOL. Program ID `8xYafVKnRmi99cRPQV2TLRHRH2MsfjZtJH4DMy8anHiC` is deployed
+  to devnet (see below).
+
+- **Program deployed and initialized on devnet** after `scripts/verify.sh` passed (14 Rust unit,
+  86 bankrun tests). `setup-devnet.ts` now also runs `initialize_protocol` and `create_arena`,
+  reusing and checking both accounts on re-run; `npm run setup:devnet` bundles it with esbuild like
+  the worker, because Anchor's ESM build does not load under plain Node. Limits: 60 s max price age,
+  500 bps max confidence (the values the program tests use).
+
+  | Step                  | Account / signature                                                                        |
+  | --------------------- | ------------------------------------------------------------------------------------------ |
+  | Deploy                | `ziUPk3BU6zgbsqfNJese89TGLzEVFzafoj6xVjo4HMDnDr736obMYegbas6vSXZU2q3QHYYteqYuuGcG2UqLbMS`  |
+  | `initialize_protocol` | config `GpEb3kYnx6N1XvhEQpcEcVu6eWGeAQq4nSnLTGwXYegj`                                      |
+  |                       | `25d5kucJd5fVPm7Xyr4donkA7X1HxL6nMWkXXqNMoBxSzQrT64B2Y24GLQNQoMfRMM7DgG3CU4cKkNNtJvPWnX2w` |
+  | `create_arena` OPENAI | arena `EiU5fEjdekCARW7eUseaebi23HwAjZZJ9789Kx28KiPt` (TSLA, `USDC-DEV` quote)              |
+  |                       | `5qR1xLRkXB4pRa3exhgTRpfY7fWpuyaAurGtjWcTNLGLDvU5imVg49ceKUNrYhejg9FDVZR3t9X4ZWL9tnCDKEJg` |
+
+- **Cross-token duels, 0.05 minimum stake and an AAPLX Arena** (user decision; §2, §19). `Match`
+  gains `challenger_arena`, per-side stake amounts and per-side strikes (`MatchTerms`); payouts are
+  routed by each player's own Arena; `min_stake_amount` enforces 0.05 tokens in each mint's decimals.
+  The Arena layout is unchanged, so the program was **upgraded in place** (same ID, slot 502943971,
+  `4naJVC…MzcDVMcXB`) and the OPENAI Arena stayed valid. New `xstocks` issuer in the registry and
+  `packages/integrations/src/xstocks.ts`; AAPLX mainnet mint resolved from Backed's official API and
+  verified over mainnet RPC (record in `docs/integration-readiness.md`). AAPLX Arena
+  `GiQBaoRxcEBRoTNFVxdaKqFe8S5ih7oXvCaGaTvnVPC1`, benchmark TSLA (the trial does not entitle AAPL).
+  Devnet smoke test on the real Token-2022 copies: 0.05 OPENAI vs 0.05 AAPLX created, joined,
+  refunded by both players after the activation deadline; both vaults emptied and both players
+  restored exactly.
 
 - `AGENTS.md` restructured: Frontend design workflow moved out of Non-negotiable decisions,
   double-spacing removed (now passes Prettier), verification section notes `scripts/verify.sh` and
   the missing `lint`/integration scripts.
 
+**Added 23 Sep 2026 (evening):**
+
+- **ClawPump billing verified (gate 9).** Credit is one account-level pool, funded by mainnet USDC
+  sent to the account `deposit_wallet` and converted by `sync_billing`; SOL sent to an agent wallet is
+  ignored. So battle-agent wallets stay empty and still draw on the pool, as §3.3 requires. The user
+  deposited 1 USDC → $1.008299 credit. Evidence in `docs/integration-readiness.md`.
+- **ClawPump gate 10 attempted — BLOCKED on provider behaviour.** Opt-in
+  `npm run test:integration:clawpump` (`scripts/gate-clawpump.ts`) drives the real adapter and worker
+  prompt with a live Hermes price. Findings, each fixed or recorded:
+  - Agents are created `stopped`; chat to a stopped agent fails with HTTP 500 after ~60 s.
+    `createBattleAgent` now calls `POST /agents/{id}/start`.
+  - The chat reply field is `content`; the adapter read `response`/`message` and would have scored
+    every round Malformed. Fixed and covered by `packages/integrations/test/clawpump.test.ts`.
+  - Once, REST `content` came back empty although the stored message held the correct JSON. The
+    adapter now recovers the reply from `GET /agents/{id}/messages` — the assistant message that
+    follows the exact prompt sent, never merely the latest. No second chat is issued (§3.3).
+  - Some calls were answered by `openai/gpt-5.4-mini` instead of `moonshotai/kimi-k2.5`, even with
+    the documented per-call `model` override, which the adapter now sends anyway. Open with ClawPump,
+    together with the ~4k-token prompts.
+- **Worker agent-wallet check moved to mainnet.** ClawPump agent wallets are mainnet accounts; the
+  empty-wallet check read devnet and could never have caught a funded agent. The worker now holds a
+  read-only mainnet connection (`SOLANA_MAINNET_RPC_URL`, default public RPC) for that check only.
+- **Web app plays matches (§11).** Wallet Standard connection in the header; browser transaction
+  builders (`apps/web/src/lib/transactions.ts`) for create, join, cancel, refund (tie, failed, and
+  mark-oracle-failure-then-refund in one transaction), claim, exercise and reclaim, reading token
+  programs from each Arena account. Every transaction is simulated before the wallet is asked to
+  sign, so a rejection shows the program's own message. `availableActions` decides which button to
+  show from the same state, deadlines and flags the program checks (unit-tested). Create form on the
+  Arena page with both stakes, the opponent's Arena, both strikes, profile, strategy presets and a
+  fixed-terms review; join on the match page. Create and join are disabled while the benchmark is
+  stale. The browser generates the salt; the server computes and stores the commitment write-once.
+- **Shared web modules:** `lib/format.ts` (price/amount formatting and parsing), `lib/benchmark.ts`
+  (one freshness check for pages and `/api/arenas`), semantic colour tokens from `DESIGN.md` in the
+  Tailwind theme. `@stock-arena/shared/constants` is a new browser-safe export (the root entry
+  imports `node:crypto`); it also holds the three §11 strategy presets.
+- **Local run:** dedicated `stock-arena-postgres` container (Postgres 17, `127.0.0.1:5440`, password
+  only in `.env`), initial Prisma migration `prisma/migrations/20260923143018_init`, and root scripts
+  `npm run dev:web` / `npm run dev:worker`, which start from the repository root so the root `.env`
+  and `config/arenas.json` resolve. Tailwind's config and content paths are pinned to `apps/web`
+  because of that. `README.md` and `.env.example` updated.
+
+**Added 23 Sep 2026 (late UI and dev-server fixes):**
+
+- **UI completed to a reviewable demo state.** The match view has a benchmark battlefield using
+  on-chain start/final observations, accepted-round prompt observations and a labelled provisional
+  Hermes point. Prediction targets appear only after both outcomes are accepted on-chain. Mirrored
+  agent panels, a countdown, round progress and an event log show the battle. The Arena shows feed
+  freshness; the picker highlights read-only mainnet holdings; the proof page shows recorded agent
+  checks and transaction links when audit signatures exist. Geist Sans and Geist Mono are bundled
+  through Next.js. This is UI completion, not evidence of a full two-wallet devnet rehearsal.
+- **shadcn/ui added for shared controls.** `apps/web/components.json` is configured for the existing
+  Tailwind 3 app; use `shadcn@2.3.0` when adding components. Button, Input and Textarea live in
+  `apps/web/src/components/ui` and are used by the create/join and transaction controls. Their
+  generated styles were adapted to `DESIGN.md` semantic tokens, 32/36 px desktop controls and larger
+  mobile touch targets. `tailwind-merge` is pinned to 2.6.0 because v3 targets Tailwind 4.
+- **Next.js dev/build outputs separated.** `apps/web/next.config.ts` writes development output to
+  `.next-dev` and production output to `.next`. This stopped concurrent dev/build runs from leaving
+  the dev server with a missing `vendor-chunks/tr46.js` and an Arena 500.
+- **RPC failure degrades the Arena safely.** `apps/web/src/app/arena/[symbol]/page.tsx` catches a
+  devnet RPC read timeout, logs only an error type and correlation ID, shows an unavailable notice,
+  and withholds challenge listings and financial actions. A controlled unavailable-RPC check returned
+  HTTP 200 instead of 500; it did not prove devnet availability.
+- **Stale dependency cache diagnosed.** After npm placed `tailwind-merge@2.6.0` under
+  `apps/web/node_modules`, an existing `.next-dev` bundle still referenced the removed root
+  `node_modules/tailwind-merge/dist/bundle-mjs.mjs`, causing `ENOENT`. Moving aside the generated
+  `.next-dev` cache and restarting the dev server rebuilt the reference to the installed package;
+  `/arena/AAPLX` then returned HTTP 200 on port 3000. If this exact error returns after dependency
+  changes, stop the dev server, discard only generated `.next-dev`, then restart it. No source-code
+  change was needed for this cache failure.
+
 Jev (`jev-1.13.0`) was consulted on the mutable-protocol-limit choice. It selected per-Match
 snapshotting with confidence 1.0; that is the implementation above.
 
 ### Verification evidence
+
+23 Sep 2026, late UI pass: `npm run typecheck` PASS; `npm test` PASS — **75 tests, 12 files**;
+`npm run build --workspace @stock-arena/web` PASS; Prettier PASS on changed UI files. The fresh
+dev-server compile and `/arena/AAPLX` returned HTTP 200 after the dependency-cache restart.
+`npm run format:check` still FAILS only on the pre-existing `DESIGN.md` formatting; `npm run lint`
+does not exist. No Rust/program checks or paid integration calls were run for these UI/cache changes.
+
+23 Sep 2026, evening: `npm test` PASS — **74 tests, 11 files**; worker and web `tsc --noEmit` PASS;
+`npm run build --workspace @stock-arena/web` PASS; Prettier PASS on every touched file. Devnet run of
+the web transaction builders with the demo keypairs, 0.05 OPENAI-DEV vs 0.05 AAPLX-DEV: create →
+cancel restored A exactly; create → join → early refund rejected in simulation → both refunded
+after the activation deadline, both balances restored exactly (signatures in
+`docs/integration-readiness.md`). `/api/strategies` stores, replays idempotently, against the new
+database. Program tests were not re-run — no Rust changed.
+
+23 Sep 2026, after cross-token: `bash scripts/verify.sh` PASS — build, fmt, clippy, **15 Rust unit
+tests**, **100 bankrun program tests** (14 new: minimum stake, Arena mismatch, both cross-token
+winners, misrouted payout, tie, expiry, activation refund); `npm test` PASS — **63 tests, 9 files**;
+`npm run typecheck` PASS.
 
 23 Sep 2026, after the worker changes: `npm test` PASS — **61 tests, 8 files** (new price-history
 test); `npm run typecheck` PASS; Prettier PASS on every touched file. Program tests were not re-run —
@@ -764,32 +884,29 @@ Earlier runs on 21 Sep 2026:
 
 ### Remaining before §16 is complete
 
-- **Next step: deploy and initialize on devnet.** Deploy `stock_arena` with the deploy wallet, run
-  `initialize_protocol` (admin `ChiK…`, orchestrator `B5yR…`), then `create_arena` for OPENAI with the
-  TSLA Core ID and `USDC-DEV` as quote. Both mints already satisfy the extension allowlist.
-- **ClawPump is the last external blocker** (gates 9–10): `CLAWPUMP_API_KEY` is empty; need the
-  `cpk_` key, a verified paid model and credit, then one strict-JSON call from an empty agent. Gate 12
-  (Champion) stays optional.
+- **ClawPump gate 10 is the last external blocker.** Credit and the paid model are verified; the
+  provider sometimes substitutes `gpt-5.4-mini` and once returned an empty reply (recovered from
+  history now). Two stopped test agents (`ee16d48e…`, `51d9bdad…`) remain, public and accepting bids.
+  Gate 12 (Champion) stays optional.
 - Every other §13 gate is VERIFIED or ANSWERED as of 23 Sep (`docs/integration-readiness.md`).
-- No clean two-wallet devnet rehearsal has been recorded.
-- The web app is read-only and does not yet provide wallet connection or client-side transaction
-  builders for create, join, claim, refund, exercise and expiry reclaim.
+- **No clean two-wallet devnet rehearsal has been recorded** — the next step, with web app, worker
+  and Postgres running (`README.md`). Claim, exercise and reclaim have been exercised only by the
+  program tests, not yet from the web app on devnet.
+- Turns do not record which model actually answered; the proof page should show it.
 - Worker recovery still needs confirmed-signature persistence and chain-state-aware recovery for
   activation, settlement and round transaction ambiguity. Agent creation also needs a cross-match
   race guard, and a funded agent must be durably quarantined and surfaced as a stop condition.
-- Arena UI still needs live benchmark freshness on the Arena page, the exact stale-feed disable
-  behavior, create/join forms and player action controls. Proof evidence still needs Pyth posting and
-  settlement signatures, verified agent-wallet balance evidence and explorer links.
-- `README.md` still describes the pre-settlement baseline (a devnet-setup step was added 23 Sep) and
-  should be updated before judging. A `lint` script must exist and pass before completion can be
-  claimed.
+- Proof evidence still needs worker persistence of Pyth posting and settlement signatures, actual
+  responding model and current verified agent-wallet balance evidence. The UI labels missing evidence
+  explicitly and links recorded signatures and the devnet match account.
+- `README.md` still needs a demo walkthrough, costs and limitations before judging. A `lint` script
+  must exist and pass before completion can be claimed.
 - `AGENTS.md` still has two stale spots: its Stop conditions reference the resolved "Meteora
   requirement" and `/pump-pairs` (§3.4 superseded both), and it does not state the §3.1 rule that a
   devnet copy may carry only the metadata extensions.
 - The Pyth API key was pasted into a chat transcript on 23 Sep; rotate it before judging and update
   `.env` only.
-- `DESIGN.md` is the authoritative visual specification per `AGENTS.md`, and must be read completely
-  before the create/join forms, wallet connection or Arena stale-feed UI are built.
+- `.gitignore` lists `AGENTS.md` and `code.md`, but both are tracked, so the entries have no effect.
 - `transcriptFilters` returns `OR: []` for a match that has not activated, which relies on an empty
   `OR` matching no rows. Both callers guard with the activation check first, so nothing depends on
   it today — but removing that guard would make strategy visibility rest on an untested library

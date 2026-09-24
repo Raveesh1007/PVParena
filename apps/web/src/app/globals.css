@@ -2,11 +2,130 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Devnet-only prototype: one dark surface, high contrast, no theming machinery. */
+/* Warm dark by default, warm light on request (DESIGN.md). Components use the semantic roles,
+   never literal colors; a theme only swaps these values. */
 :root {
   color-scheme: dark;
+  --canvas: 24 24 21;
+  --surface-1: 32 32 29;
+  --surface-2: 40 40 37;
+  --surface-3: 50 50 46;
+  --border-subtle: 47 47 44;
+  --text-primary: 245 244 240;
+  --text-secondary: 211 209 202;
+  --text-muted: 165 162 152;
+  --accent: 123 143 255;
+  --accent-fg: 24 24 21;
+  --bullish: 63 185 80;
+  --bearish: 244 112 103;
+  --warning: 210 153 34;
+  --danger: 229 83 75;
+  --info: 201 191 169;
+  --grid-line: 255 255 255 / 0.025;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --canvas: 253 252 250;
+  --surface-1: 248 247 243;
+  --surface-2: 241 239 234;
+  --surface-3: 231 229 223;
+  --border-subtle: 231 229 223;
+  --text-primary: 22 21 15;
+  --text-secondary: 61 59 51;
+  --text-muted: 93 89 78;
+  --accent: 31 64 237;
+  --accent-fg: 255 255 255;
+  --bullish: 22 128 58;
+  --bearish: 200 45 45;
+  --warning: 150 96 0;
+  --danger: 185 28 28;
+  --info: 81 72 55;
+  --grid-line: 0 0 0 / 0.035;
 }
 
 body {
-  @apply bg-neutral-950 text-neutral-100 antialiased;
+  @apply bg-canvas text-text-primary antialiased;
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  background-image:
+    linear-gradient(rgb(var(--grid-line)) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--grid-line)) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+@layer components {
+  .font-display {
+    font-family: var(--font-newsreader), Georgia, 'Times New Roman', serif;
+  }
+  .title-page {
+    @apply font-display text-[32px] font-normal leading-tight tracking-tight text-text-primary;
+    letter-spacing: -0.02em;
+  }
+  .title-section {
+    @apply font-display text-xl font-normal leading-snug text-text-primary;
+  }
+  /* Numbered mono kicker above a section, e.g. "01 / Arenas". */
+  .eyebrow {
+    @apply text-xs font-medium uppercase text-text-muted;
+    font-family: var(--font-geist-mono), ui-monospace, monospace;
+    letter-spacing: 0.12em;
+  }
+}
+
+code,
+pre,
+.font-mono {
+  font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+}
+
+:focus-visible {
+  outline: 2px solid rgb(var(--accent));
+  outline-offset: 2px;
+}
+
+/* The wallet adapter ships its own 48px purple button; bring it onto the control scale. */
+.wallet-adapter-button.wallet-adapter-button-trigger {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 13px;
+  border: 1px solid rgb(var(--border-subtle));
+  font-weight: 500;
+  line-height: 32px;
+  background-color: rgb(var(--surface-2));
+  color: rgb(var(--text-primary));
+}
+.wallet-adapter-button.wallet-adapter-button-trigger:not([disabled]):hover {
+  background-color: rgb(var(--surface-3));
+}
+.wallet-adapter-button-start-icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+}
+
+.wallet-adapter-modal-wrapper {
+  background: rgb(var(--surface-1));
+  color: rgb(var(--text-primary));
+  border: 1px solid rgb(var(--border-subtle));
+  border-radius: 12px;
+  box-shadow: 0 16px 48px rgb(0 0 0 / 0.45);
+}
+
+.wallet-adapter-modal-title {
+  color: rgb(var(--text-primary));
+  font-size: 16px;
+}
+
+.wallet-adapter-modal-list .wallet-adapter-button:not([disabled]):hover {
+  background: rgb(var(--surface-2));
+}
+
+.wallet-adapter-modal-button-close {
+  background: rgb(var(--surface-2));
+}
+
+.wallet-adapter-modal-overlay {
+  background: rgb(0 0 0 / 0.7);
 }

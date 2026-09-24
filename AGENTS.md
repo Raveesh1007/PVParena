@@ -42,11 +42,12 @@ when in doubt, cut scope, not correctness. The dated schedule is `code.md` §15.
 - **There is no market-session subsystem.** No holiday calendar, no timezone library, no
   regular-hours restriction, no computed reopening time. Feed staleness is the only availability
   guard (`code.md` §5.2).
-- Arena assets: clearly labelled **`<SYMBOL>` devnet test copies** of PreStocks tokens. The Arena
+- Arena assets: clearly labelled **`<SYMBOL>` devnet test copies** of PreStocks tokens and of
+  xStocks tokenized stocks (AAPLX). The Arena
   registry is **configuration** (`config/arenas.json`), never hard-coded to one token. Build OPENAI
   end to end first. Real PreStocks mainnet data is display, proof and holdings-display only.
-- Duels are **same-token only**: both players stake the same Arena asset. See `code.md` §19 before
-  proposing cross-token duels.
+- Duels are **cross-token**: the creator names both stakes (each ≥ 0.05 tokens) and two USDC strikes;
+  both Arenas must share benchmark and quote. No token price is ever trusted. See `code.md` §19.
 - Match profiles: 15-minute standard, 9-minute demo. Minimum 9 minutes.
 - Round submission: **one atomic instruction containing both players' outcomes**. No prediction
   commit–reveal.

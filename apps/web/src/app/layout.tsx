@@ -1,8 +1,11 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import { Geist_Mono, Inter, Newsreader } from 'next/font/google';
 
 import './globals.css';
 import { Disclosure } from '@/components/disclosure';
+import { ThemeToggle, themeScript } from '@/components/theme-toggle';
+import { ConnectButton, WalletProviders } from '@/components/wallet';
 
 export const metadata: Metadata = {
   title: 'Stock Arena',
@@ -11,23 +14,44 @@ export const metadata: Metadata = {
     'fighters, Pyth the benchmark.',
 };
 
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
+const newsreader = Newsreader({
+  subsets: ['latin'],
+  variable: '--font-newsreader',
+  display: 'swap',
+});
+const geistMono = Geist_Mono({
+  subsets: ['latin'],
+  variable: '--font-geist-mono',
+  display: 'swap',
+});
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-neutral-950 text-neutral-100">
-        <header className="border-b border-neutral-800">
-          <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
-            <a href="/" className="text-lg font-semibold tracking-tight">
-              Stock Arena
-            </a>
-            {/* Never ambiguous about which network the escrow is on. `code.md` §11. */}
-            <span className="rounded border border-amber-600/60 bg-amber-950/40 px-2 py-1 text-xs font-medium text-amber-300">
-              devnet
-            </span>
-          </div>
-        </header>
-        <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
-        <Disclosure />
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
+      <body
+        className={`${inter.variable} ${newsreader.variable} ${geistMono.variable} min-h-screen bg-canvas text-text-primary`}
+      >
+        <WalletProviders>
+          <header className="sticky top-0 z-10 border-b border-border-subtle bg-canvas/80 backdrop-blur">
+            <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3">
+              <a href="/" className="font-display text-xl tracking-tight">
+                Stock Arena
+              </a>
+              <div className="flex items-center gap-3">
+                {/* Never ambiguous about which network the escrow is on. `code.md` §11. */}
+                <span className="eyebrow text-warning">Solana devnet</span>
+                <ThemeToggle />
+                <ConnectButton />
+              </div>
+            </div>
+          </header>
+          <main className="mx-auto max-w-7xl px-4 py-6">{children}</main>
+          <Disclosure />
+        </WalletProviders>
       </body>
     </html>
   );

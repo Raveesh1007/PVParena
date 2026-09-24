@@ -2,7 +2,9 @@ import 'server-only';
 
 import type { BN } from '@coral-xyz/anchor';
 import { getMint } from '@solana/spl-token';
-import type { PublicKey } from '@solana/web3.js';
+import { PublicKey } from '@solana/web3.js';
+import { arenaPda, parseFeedId } from '@stock-arena/idl';
+import { playableArenas } from '@stock-arena/integrations';
 import { BPS_DENOMINATOR, MAX_ROUND_ERROR_BPS, ROUND_WEIGHTS_BPS } from '@stock-arena/shared';
 
 import { arenaRegistry, program } from './server';
@@ -64,10 +66,14 @@ export interface Observation {
 
 const zeroPubkey = '11111111111111111111111111111111';
 
+type MatchAccount = Awaited<ReturnType<ReturnType<typeof program>['account']['match']['fetch']>>;
+
 export async function loadMatch(pda: PublicKey): Promise<MatchView | null> {
   const account = await program().account.match.fetchNullable(pda);
-  if (!account) return null;
+  return account ? toMatchView(pda, account) : null;
+}
 
+async function toMatchView(pda: PublicKey, account: MatchAccount): Promise<MatchView> {
   const challenger = account.challenger.toBase58();
   const startObservation = observation(account.startObservation);
   const finalObservation = observation(account.finalObservation);
@@ -135,7 +141,23 @@ export async function loadMatch(pda: PublicKey): Promise<MatchView | null> {
 }
 
 /** Symbol from the registry and decimals from the devnet mint the Arena escrows. */
-async function stakeAsset(arena: PublicKey) {
+// An Arena's asset mint and that mint's decimals never change, so one read per server process is
+// enough. Without this, every listed match re-read both Arenas and both mints, and a page with a
+// handful of matches burst past the public devnet RPC rate limit.
+const stakeAssets = new Map<string, Promise<{ arena: string; symbol: string; decimals: number }>>();
+
+export function stakeAsset(arena: PublicKey) {
+  const key = arena.toBase58();
+  let cached = stakeAssets.get(key);
+  if (!cached) {
+    cached = readStakeAsset(arena);
+    cached.catch(() => stakeAssets.delete(key));
+    stakeAssets.set(key, cached);
+  }
+  return cached;
+}
+
+async function readStakeAsset(arena: PublicKey) {
   const account = await program().account.arena.fetch(arena);
   const mint = await getMint(
     program().provider.connection,
@@ -220,11 +242,28 @@ export async function listMatches(arena: PublicKey): Promise<MatchView[]> {
   const unique = new Map(
     [...(asCreator ?? []), ...(asChallenger ?? [])].map((entry) => [
       entry.publicKey.toBase58(),
-      entry.publicKey,
+      entry,
     ]),
   );
-  const views = await Promise.all([...unique.values()].map((pda) => loadMatch(pda)));
-  return views
-    .filter((view): view is MatchView => view !== null)
-    .sort((a, b) => b.deadlines.created - a.deadlines.created);
+  const views = await Promise.all(
+    [...unique.values()].map((entry) => toMatchView(entry.publicKey, entry.account)),
+  );
+  return views.sort((a, b) => b.deadlines.created - a.deadlines.created);
+}
+
+/** Every deployed, active Arena on the shared benchmark: the tokens a challenge can pair. */
+export async function loadArenaOptions(): Promise<
+  { arena: string; symbol: string; decimals: number }[]
+> {
+  const registry = arenaRegistry();
+  if (registry.benchmark.coreFeedId === '') return [];
+  const feed = parseFeedId(registry.benchmark.coreFeedId);
+  const options = await Promise.all(
+    playableArenas(registry).map(async (entry) => {
+      const pda = arenaPda(new PublicKey(entry.devnetTestMint), feed);
+      const account = await program().account.arena.fetchNullable(pda);
+      return account?.active ? stakeAsset(pda) : null;
+    }),
+  );
+  return options.filter((option) => option !== null);
 }

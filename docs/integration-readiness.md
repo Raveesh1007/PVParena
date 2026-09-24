@@ -67,6 +67,21 @@ Blockers to raise with ClawPump: (1) why a paid, pinned model is replaced by `gp
 `POST /stop` afterwards (not deleted); both are `is_public: true` and `accepting_bids: true`, with always-on skills
 including `wallet-ops`, `perps-trading`, `x402` and `private-transfers`.
 
+## Web transaction builders on devnet (verified 2026-09-23)
+
+`apps/web/src/lib/transactions.ts`, the builders behind the web app's wallet actions, driven from a
+script with the demo player keypairs (the wallet adapter only signs). Cross-token: player A stakes
+0.05 OPENAI-DEV, player B 0.05 AAPLX-DEV, demo profile, placeholder commitments.
+
+| Step                                  | Result                                                                           |
+| ------------------------------------- | -------------------------------------------------------------------------------- |
+| Create `A1i4T3tQ…` → cancel           | `2S1B2uwG…`, `4uqtET48…`; `open` → `cancelled`; A's OPENAI-DEV restored exactly  |
+| Create `B2NVEyZt…` → B joins          | `X4YAQmTU…`, `3QxmqUi7…`; state `ready`                                          |
+| Refund before the activation deadline | Rejected in simulation: "The activation window is still open; …"; nothing signed |
+| Both refund after the deadline        | `Vk5peg9E…`, `4VdmbwxA…`; `failureRefundable`; both balances restored exactly    |
+
+Claim, exercise and reclaim need a settled match, so they wait for the worker rehearsal.
+
 ## Benchmark decision
 
 Chosen symbol: **`Equity.US.TSLA/USD`** (23 Sep 2026).
@@ -429,3 +444,13 @@ An external review found five issues; all five are fixed.
 
 The fourth item is worth remembering as a rule: a test that needs a production constant relaxed is
 a sign the harness is wrong, not the constant.
+
+## Mainnet trade price for xStocks (Jupiter) — 24 Sep 2026
+
+Backed's `api.backed.fi/api/v1/token` publishes mints but no price. The AAPLX mainnet price shown on
+the Arena card and used to pre-fill strikes comes from Jupiter's public price API,
+`GET https://lite-api.jup.ag/price/v3?ids=<mint>` (no key), adapter
+`packages/integrations/src/jupiter.ts`. Live response for `XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp`:
+`usdPrice` 335.699…, `liquidity` ≈ 570k, `stockData.price` 336.86 (xStocks reference). Display and
+strike suggestion only: the signed USDC strike remains the only price any instruction uses. PreStocks
+Arenas keep the official PreStocks `tokenPrice`.

@@ -2,6 +2,7 @@ node_modules/
 target/
 dist/
 .next/
+.next-dev/
 .anchor/
 *.tsbuildinfo
 *.log
@@ -17,3 +18,6 @@ target/verify-logs/
 Thumbs.db
 .vscode/
 .idea/
+
+AGENTS.md 
+code.md

@@ -62,3 +62,19 @@ export const I64_MAX_DIGITS = 19;
 export const MAX_STRATEGY_BYTES = 500;
 export const STRATEGY_SALT_BYTES = 32;
 export const MAX_THESIS_BYTES = 280;
+
+/** Starting points offered in the strategy field (`code.md` §11). Players may edit them freely. */
+export const STRATEGY_PRESETS = [
+  {
+    name: 'Momentum rider',
+    text: 'Follow the direction of the most recent move. If the benchmark has risen since the match started, predict a further small rise; if it has fallen, predict a further small fall.',
+  },
+  {
+    name: 'Mean reverter',
+    text: 'Expect the benchmark to drift back toward the match start price. Predict a partial retracement of whatever move has happened so far.',
+  },
+  {
+    name: 'Volatility fader',
+    text: 'Assume large short-term moves overstate the trend. Predict a price close to the latest observation, shaded slightly against any sharp move.',
+  },
+] as const;

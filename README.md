@@ -68,6 +68,29 @@ npm install
 cp .env.example .env    # then fill it in; never commit .env
 ```
 
+PostgreSQL (orchestration and audit only, never authoritative for money). A dedicated container,
+then the schema; put the password you chose into `DATABASE_URL`:
+
+```sh
+docker run -d --name stock-arena-postgres --restart unless-stopped   -e POSTGRES_USER=stock_arena -e POSTGRES_PASSWORD=<password> -e POSTGRES_DB=stock_arena   -p 127.0.0.1:5440:5432 -v stock-arena-pgdata:/var/lib/postgresql/data postgres:17-alpine
+node --env-file=.env node_modules/prisma/build/index.js migrate deploy
+```
+
+Web app and worker, each in its own terminal from the repository root (both read the root `.env`
+and `config/arenas.json`):
+
+```sh
+npm run dev:web      # http://localhost:3000
+npm run dev:worker
+```
+
+The dev server writes `apps/web/.next-dev`; production builds write `apps/web/.next`. Restart an
+older dev server once after updating so it loads the separate output directory.
+
+The web app uses shadcn/ui source components in `apps/web/src/components/ui`, styled with the
+Stock Arena tokens. For new components on Tailwind 3, run `npx shadcn@2.3.0 add <component>
+--cwd apps/web` from the repository root, then adapt its styles to `DESIGN.md`.
+
 Devnet assets: create the labelled test copy of a PreStocks token and the `USDC-DEV` quote mint,
 fund both demo players, and write the mints to `config/arenas.json` and `.env`. Re-runnable.
 
