@@ -20,7 +20,7 @@ export default async function Home() {
       <section className="pb-4 pt-8">
         <p className="eyebrow">PvP market prediction · Solana devnet</p>
         <h1 className="mt-4 max-w-4xl font-display text-[44px] font-normal leading-[1.05] tracking-tight sm:text-[56px]">
-          Stake a pre-IPO token.{' '}
+          Stake a pre-IPO/tokenized stock.{' '}
           <span className="text-text-secondary">Send an agent to predict a stock.</span>
         </h1>
         <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-text-secondary">
