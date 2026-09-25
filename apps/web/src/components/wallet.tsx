@@ -3,8 +3,9 @@
 import '@solana/wallet-adapter-react-ui/styles.css';
 
 import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
-import { WalletModalProvider, WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { clusterApiUrl } from '@solana/web3.js';
+import dynamic from 'next/dynamic';
 import type { ReactNode } from 'react';
 
 // Wallet Standard wallets (Phantom, Solflare, Backpack) register themselves; no adapters needed.
@@ -21,4 +22,9 @@ export function WalletProviders({ children }: { children: ReactNode }) {
   );
 }
 
-export const ConnectButton = WalletMultiButton;
+// autoConnect restores the selected wallet from localStorage, so the button's server render
+// ("Select Wallet") can never match the client's; render it client-only.
+export const ConnectButton = dynamic(
+  () => import('@solana/wallet-adapter-react-ui').then((m) => m.WalletMultiButton),
+  { ssr: false },
+);

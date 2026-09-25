@@ -45,12 +45,16 @@ export function loadArenaRegistry(path: string): ArenaRegistry {
   } catch (error) {
     throw new Error(`Could not read the Arena registry at ${path}: ${String(error)}`);
   }
-  const parsed = registrySchema.safeParse(JSON.parse(text));
+  return parseArenaRegistry(JSON.parse(text), path);
+}
+
+export function parseArenaRegistry(data: unknown, source: string): ArenaRegistry {
+  const parsed = registrySchema.safeParse(data);
   if (!parsed.success) {
     const issues = parsed.error.issues
       .map((issue) => `${issue.path.join('.') || '<root>'}: ${issue.message}`)
       .join('; ');
-    throw new Error(`${path} is not a valid Arena registry: ${issues}`);
+    throw new Error(`${source} is not a valid Arena registry: ${issues}`);
   }
   return parsed.data;
 }

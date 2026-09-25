@@ -1,6 +1,7 @@
 import { PublicKey } from '@solana/web3.js';
 import { arenaPda, parseFeedId } from '@stock-arena/idl';
 import { playableArenas } from '@stock-arena/integrations';
+import { DISCLOSURE } from '@stock-arena/shared';
 
 import { loadBenchmark } from '@/lib/benchmark';
 import { arenaRegistry, program } from '@/lib/server';
@@ -39,10 +40,6 @@ export async function GET(): Promise<Response> {
     network: 'devnet',
     benchmark,
     arenas,
-    disclosure:
-      'Stock Arena is an experimental devnet hackathon prototype. The escrowed assets are test ' +
-      'tokens with no monetary value. The displayed PreStocks assets are separate mainnet ' +
-      'references and may represent economic exposure rather than legal share ownership. This is ' +
-      'not investment, legal or financial advice.',
+    disclosure: DISCLOSURE,
   });
 }

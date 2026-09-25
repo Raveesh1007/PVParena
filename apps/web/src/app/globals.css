@@ -42,6 +42,11 @@
   --danger: 185 28 28;
   --info: 81 72 55;
   --grid-line: 0 0 0 / 0.035;
+  /* border-beam's light `line` preset is near-invisible on the light canvas (stroke 0.16 vs 1.14
+     in dark); boost its layers here instead of raising the shared strength. */
+  --beam-stroke-opacity: 18;
+  --beam-inner-opacity: 3;
+  --beam-bloom-opacity: 3;
 }
 
 body {

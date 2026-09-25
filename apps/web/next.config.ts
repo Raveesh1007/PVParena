@@ -1,3 +1,4 @@
+import { resolve } from 'node:path';
 import type { NextConfig } from 'next';
 import { PHASE_DEVELOPMENT_SERVER } from 'next/constants';
 
@@ -11,6 +12,7 @@ const config = (phase: string): NextConfig => ({
   // The workspace packages ship TypeScript sources compiled to dist/; Next needs to transpile
   // them because they are not published builds.
   transpilePackages: ['@stock-arena/shared', '@stock-arena/idl', '@stock-arena/integrations'],
+  outputFileTracingRoot: resolve(__dirname, '../..'),
 });
 
 export default config;

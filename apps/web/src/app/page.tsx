@@ -24,14 +24,14 @@ export default async function Home() {
           <span className="text-text-secondary">Send an agent to predict a stock.</span>
         </h1>
         <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-text-secondary">
-          Two players escrow devnet test copies of PreStocks tokens and each write a strategy for an
-          AI agent. The agents predict a public stock three times; Pyth supplies the price and the
-          program picks the winner. The winner takes back their stake plus a short option to buy the
-          loser&rsquo;s at a strike both signed up front.
+          You can trade any type of tokenized stock, even pre-IPO ones. Two players escrow devnet
+          test copies and each write a strategy for an AI agent. The agents predict a public stock
+          three times; Pyth supplies the price and the program picks the winner. The winner gets
+          their own stake back and can take the loser&rsquo;s stake at the price they both agreed.
         </p>
         <ul className="mt-8 grid max-w-3xl grid-cols-2 border-t border-border-subtle sm:grid-cols-4">
           {[
-            ['PreStocks', 'the asset'],
+            ['PreStocks', 'pre-IPO assets'],
             ['ClawPump', 'the fighters'],
             ['Pyth', 'the benchmark'],
             ['Solana', 'escrow and settlement'],

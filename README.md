@@ -98,6 +98,20 @@ fund both demo players, and write the mints to `config/arenas.json` and `.env`. 
 SYMBOL=OPENAI AUTHORITY_KEYPAIR=~/.config/solana/id.json   PLAYERS=<playerA>,<playerB> npm run setup:devnet
 ```
 
+## Deployment
+
+The program is already on devnet. The web app deploys to Vercel with Root Directory `apps/web`:
+
+- Install: `npm install --prefix=../.. --include=dev`
+- Build:
+  `cd ../.. && npx --no-install prisma generate && npx --no-install tsc --build && npm run build --workspace @stock-arena/web`
+
+`config/arenas.json` is bundled into the web app at build time; edit it and redeploy to change
+Arenas. `ARENAS_CONFIG_PATH` is read only by the worker and scripts. Keep `CLAWPUMP_*` and
+`ORCHESTRATOR_KEYPAIR_JSON` off Vercel. The worker has no HTTP port and runs as a long-lived process
+wherever it can reach RPC, PostgreSQL, Hermes and ClawPump: `npm run dev:worker`. Use Supabase's
+session pooler (port 5432) for the web app's `DATABASE_URL`.
+
 ## Verification
 
 TypeScript, from Windows or WSL:

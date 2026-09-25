@@ -4,7 +4,9 @@ import { AnchorProvider, Program } from '@coral-xyz/anchor';
 import { Connection, Keypair, PublicKey } from '@solana/web3.js';
 import { PrismaClient } from '@prisma/client';
 import { IDL, PROGRAM_ID, type StockArena, configPda } from '@stock-arena/idl';
-import { loadArenaRegistry, optional, required } from '@stock-arena/integrations';
+import { parseArenaRegistry, required } from '@stock-arena/integrations';
+
+import registryJson from '../../../../config/arenas.json';
 
 /**
  * A read-only provider. It holds a throwaway keypair purely because Anchor requires a wallet to
@@ -60,8 +62,9 @@ export function db(): PrismaClient {
   return globalForPrisma.prisma;
 }
 
-export const arenaRegistry = () =>
-  loadArenaRegistry(optional('ARENAS_CONFIG_PATH', 'config/arenas.json'));
+// Bundled at build time: a runtime file path depends on the serverless function's working directory.
+const registry = parseArenaRegistry(registryJson, 'config/arenas.json');
+export const arenaRegistry = () => registry;
 
 /**
  * Constant-time-ish comparison for the internal shared secrets.

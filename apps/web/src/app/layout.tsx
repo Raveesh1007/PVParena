@@ -10,8 +10,8 @@ import { ConnectButton, WalletProviders } from '@/components/wallet';
 export const metadata: Metadata = {
   title: 'Stock Arena',
   description:
-    'Two-player PvP market prediction on Solana devnet. PreStocks the asset, ClawPump the ' +
-    'fighters, Pyth the benchmark.',
+    'Two-player PvP market prediction on Solana devnet. Tokenized stocks the asset, ClawPump ' +
+    'the fighters, Pyth the benchmark.',
 };
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });

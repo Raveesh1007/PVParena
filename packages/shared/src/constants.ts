@@ -78,3 +78,9 @@ export const STRATEGY_PRESETS = [
     text: 'Assume large short-term moves overstate the trend. Predict a price close to the latest observation, shaded slightly against any sharp move.',
   },
 ] as const;
+
+export const DISCLOSURE =
+  'Stock Arena is an experimental devnet hackathon prototype. The escrowed assets are test ' +
+  'tokens with no monetary value. The displayed tokenized-stock assets are separate mainnet ' +
+  'references and may represent economic exposure rather than legal share ownership. This is ' +
+  'not investment, legal or financial advice.';
