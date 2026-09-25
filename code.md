@@ -78,7 +78,9 @@ balance-delta arithmetic through every payout path, and buys the demo nothing.
 The UI must always separate three things: the **real mainnet asset** (sponsor proof, live data,
 player's real holdings), the **devnet test copy** (eligibility and escrow), and the **benchmark feed**
 (settlement). `markPrice`/`tokenPrice` are display only and never change an existing match; only the
-exact signed USDC base-unit amount binds.
+exact signed USDC base-unit amount binds. The create form may **pre-fill** each strike as stake ×
+live mainnet price per token (PreStocks `tokenPrice`; Jupiter `usdPrice` for xStocks, which Backed's
+API does not price), truncated to quote decimals and editable; the program never sees that price.
 
 **Mainnet holdings** — read the player's real balances read-only via `SOLANA_MAINNET_RPC_URL` and
 surface them ("You hold SPACEX on mainnet — enter the SpaceX Arena"). Never moves value, never a
@@ -480,8 +482,9 @@ keys, bearer tokens or unencrypted keypairs.
   escrow card labelled **Devnet test copy** (mint, balance); benchmark card (price, publish time,
   confidence, freshness); open challenges; Create Challenge. Feed stale → §5.2 sentence, new matches
   disabled.
-- **Create/join** — both tokens and exact amounts (≥ 0.05 each); both exact quote strikes; optional
-  reference suggestion; profile;
+- **Create/join** — both tokens and exact amounts (≥ 0.05 each); a price per token for each side,
+  pre-filled from the live mainnet price (§3.1), from which the exact quote strike is computed and
+  shown; profile;
   strategy entry (500 chars, presets "Momentum rider", "Mean reverter", "Volatility fader"); explicit
   winner/exercise/expiry/refund explanation; immutable term review before signing.
 - **Lobby / live battle** — both wallets and empty-wallet agent identities; commitment verification;
@@ -826,10 +829,55 @@ mark an external integration as verified or a Definition-of-Done item as complet
   changes, stop the dev server, discard only generated `.next-dev`, then restart it. No source-code
   change was needed for this cache failure.
 
+**Added 24 Sep 2026:**
+
+- **First complete two-wallet devnet match from the web app.** Match
+  `GA6jd478gEFCuuUwkXMR1BN3y5wBFC6TcUCgKTnGj5s6` (demo profile, 1 OPENAI-DEV each side): created by
+  Player A, joined by Player B, activated and run by the worker with **six valid ClawPump agent
+  predictions**, settled on TSLA (start 379.17000, final 378.93000), Player A won 2 bps vs 3 bps
+  weighted error, claimed, then **exercised** the option from the web app (state `optionExercised`).
+  Gate 10's open provider questions (model substitution, prompt size) are not re-graded by this run.
+- **Match page rewritten for plain language.** `apps/web/src/lib/match-status.ts` is the single source
+  of the headline status, detail sentence and countdown for every on-chain state (unit-tested). Sides
+  are "Player A"/"Player B" everywhere; scores are shown as weighted error percentages
+  (`formatBps`); a scoreboard lists each round's weight, the price the agents saw, both predictions
+  with error, and the recorded totals; a sub-bps error reads "<0.01%" rather than "0%". Technical
+  fields moved into a collapsed section. The winner still comes only from program state.
+- **Live battle chart.** `apps/web/src/components/benchmark-chart.tsx` polls the new read-only
+  `GET /api/benchmark` (2 s server cache, never posts) every 3 s while a match is active or awaiting
+  settlement, and draws every prediction accepted on-chain as a per-round marker with a line to the
+  final-price time. Known gap: the live line starts when the page opens and is not persisted; a
+  reload shows only on-chain and agent-observed points.
+- **Mainnet-priced strikes.** Create form takes a price per token per side (see §3.1, §11);
+  `strikeFor` computes the strike in integer base units, flooring. New adapter
+  `packages/integrations/src/jupiter.ts` (Zod, no key) supplies the AAPLX mainnet trade price;
+  evidence in `docs/integration-readiness.md`.
+- **Visual system.** Warm-dark editorial theme after yieldtheory.app plus an optional warm-light
+  theme (sun/moon toggle, saved per browser, applied before first paint); Newsreader titles, Inter
+  body, Geist Mono values and `.eyebrow` kickers; shared `.title-page`/`.title-section` classes;
+  higher text contrast; every card wrapped in the shared subtle `Beam` (`border-beam@1.4.1`, mono,
+  line, strength 0.35). `DESIGN.md` updated to match.
+- **Arena page RPC burst fixed.** `listMatches` re-fetched every match and each match re-read both
+  Arenas and both mints, so a page with nine match accounts sent ~40 concurrent devnet calls and the
+  public RPC's 429s surfaced as "Solana devnet RPC is unavailable". It now builds views from the
+  accounts it already fetched, and `stakeAsset` is cached per Arena for the process lifetime (asset
+  mint and decimals are immutable; failures are not cached).
+- **Local-run hazard recorded.** Background dev processes can survive their launching shell; a
+  second `dev:web` then binds 3001 and a second worker doubles RPC polling. Run exactly one web
+  server and one worker.
+
 Jev (`jev-1.13.0`) was consulted on the mutable-protocol-limit choice. It selected per-Match
 snapshotting with confidence 1.0; that is the implementation above.
 
 ### Verification evidence
+
+24 Sep 2026: `npm run typecheck` PASS; `npm test` PASS — **86 tests, 15 files** (new: match-status,
+format/strike math, Jupiter adapter); Prettier PASS on `apps/web/src`, `apps/web/test` and
+`packages/integrations`. The rewritten match page returned HTTP 200 and its rendered text was
+reviewed for the settled match above. The theme, light mode, Beam wrapping, live chart and pricing
+form were typechecked but **not viewed in a browser** by the agent; the RPC-burst fix was
+typechecked and the underlying reads replayed in isolation (≈2.6 s), but the Arena page was not
+re-run afterwards. No Rust changed; program tests not re-run. `npm run lint` still does not exist.
 
 23 Sep 2026, late UI pass: `npm run typecheck` PASS; `npm test` PASS — **75 tests, 12 files**;
 `npm run build --workspace @stock-arena/web` PASS; Prettier PASS on changed UI files. The fresh
@@ -889,9 +937,11 @@ Earlier runs on 21 Sep 2026:
   history now). Two stopped test agents (`ee16d48e…`, `51d9bdad…`) remain, public and accepting bids.
   Gate 12 (Champion) stays optional.
 - Every other §13 gate is VERIFIED or ANSWERED as of 23 Sep (`docs/integration-readiness.md`).
-- **No clean two-wallet devnet rehearsal has been recorded** — the next step, with web app, worker
-  and Postgres running (`README.md`). Claim, exercise and reclaim have been exercised only by the
-  program tests, not yet from the web app on devnet.
+- One full two-wallet devnet match (claim and exercise) has run from the web app (24 Sep, above);
+  **expiry reclaim and the tie / oracle-failure refunds** are still exercised only by program tests.
+  A clean rehearsal must still be **recorded** for the demo.
+- The public devnet RPC rate-limits the worker's 5 s polling plus page reads; set a dedicated devnet
+  endpoint in `SOLANA_RPC_URL` / `NEXT_PUBLIC_SOLANA_RPC_URL` before recording.
 - Turns do not record which model actually answered; the proof page should show it.
 - Worker recovery still needs confirmed-signature persistence and chain-state-aware recovery for
   activation, settlement and round transaction ambiguity. Agent creation also needs a cross-match
