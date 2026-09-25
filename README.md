@@ -1,191 +1,155 @@
 # Stock Arena
 
-Two-player PvP market-prediction game on **Solana devnet**. Two players escrow clearly
-labelled devnet test copies of the OpenAI PreStocks token or the Apple xStock (AAPLX) — the same token
-or one each, at least 0.05 per side — each supplies a strategy for an
-empty-wallet ClawPump battle agent, and the agents make three timed predictions for the final price
-of a Pyth stock benchmark. The Anchor program calculates the winner deterministically.
+**Stake a pre-IPO or tokenized stock. Send an AI agent to predict a real stock. The better
+prediction wins.**
 
-The winner gets their own stake back plus a short-lived **Battle Option**: the right to buy the
-loser's stake for the exact USDC strike both players signed. If the option expires, the loser
-reclaims their stake.
+Stock Arena is a two-player prediction game on Solana. Each player stakes a tokenized stock (a
+PreStocks pre-IPO token such as OpenAI, or an xStock such as Apple), writes a strategy in plain
+English, and hands it to an AI agent. The two agents predict where Tesla's price will be at the end
+of a short match. A Pyth price feed records the real result, and an on-chain program scores both
+agents and pays the winner.
 
-> PreStocks supplies the Arena asset, ClawPump supplies the fighters, Pyth supplies the benchmark,
-> Solana supplies escrow and deterministic settlement — and the player supplies the strategy.
+Live demo (Solana devnet): **https://stockarena-web-kohl.vercel.app**
 
-**Stock Arena is an experimental devnet hackathon prototype. The escrowed assets are test tokens
-with no monetary value. The displayed PreStocks asset is a separate mainnet reference and may
-represent economic exposure rather than legal share ownership. This is not investment, legal or
-financial advice.**
+> Experimental hackathon prototype on Solana **devnet**. Staked tokens are test copies with no
+> monetary value. Real PreStocks and xStocks prices are shown for reference only. Not investment,
+> legal or financial advice.
 
-`code.md` is the authoritative specification. `AGENTS.md` is the only coding-agent instruction file.
+## Why it is easy to play
 
-## Status
+- **No trading skills needed.** Your strategy is one sentence, like _"Predict the latest price
+  unless there is a clear trend."_ Three presets are one click away.
+- **Your wallet signs, nobody else holds your funds.** Stakes sit in an on-chain escrow account that
+  only the program can move. There is no admin withdrawal.
+- **Every match has an exit.** If nobody joins, the match stalls or the price feed fails, each
+  player can take their stake back. Pausing the game never blocks a refund or claim.
+- **Plain-language status.** The match page says what is happening and what you can do next, with a
+  live price chart and each agent's prediction as it lands.
+- **Fair and checkable.** Strategies are locked in with a hash before the match starts. The proof
+  page shows each strategy, each agent's full answer and every transaction, so anyone can verify
+  the result.
 
-Phase 1 in progress. Not yet deployed; no integration gate has been verified — see
-`docs/integration-readiness.md`.
+## How a match works
 
-| Piece                                                                     | State                    |
-| ------------------------------------------------------------------------- | ------------------------ |
-| `packages/shared` — strategy commitments, agent schema, reference scoring | 43 tests passing         |
-| `programs/stock_arena` — protocol, arena, create/join/cancel escrow       | 14 program tests passing |
-| Pyth activation, scoring, settlement, option, refunds                     | not started              |
-| `apps/worker`, `apps/web`, Prisma schema                                  | not started              |
-| Every external integration                                                | unverified — no keys yet |
+1. **Challenge.** Player A picks both stakes (0.05 tokens or more each), the USDC price for each
+   side, a 9- or 15-minute match and a strategy, then signs.
+2. **Join.** Player B has 15 minutes to accept the terms, add their strategy and sign.
+3. **Predict.** At the start and at one-third and two-thirds of the match, both agents predict the
+   final TSLA price. Rounds are weighted 20%, 30% and 50%.
+4. **Settle.** At the end, the real TSLA price is recorded from Pyth and the program picks the
+   agent with the smaller weighted error.
+5. **Collect.** The winner takes back their own stake and, for 10 minutes, can buy the loser's
+   stake at the agreed USDC price. If they don't, the loser takes it back.
 
-Verified on 2026-09-21: `cargo fmt`, `cargo clippy -D warnings`, `anchor build`, `anchor test`,
-`tsc --build`, `prettier --check`, 43 unit tests, 14 program tests.
+| Part                | Role                                                       |
+| ------------------- | ---------------------------------------------------------- |
+| PreStocks / xStocks | The staked assets (devnet test copies; mainnet data shown) |
+| ClawPump            | The AI agents, each with an empty wallet                   |
+| Pyth                | The TSLA price that settles every match                    |
+| Solana program      | Escrow, scoring, winner selection and payouts              |
 
-Timeout coverage is partial: `create_arena` pins duration, round offsets, settlement grace and the
-exercise window to the exact §5.1 values, so only the join and activation windows can be driven
-to expiry cheaply. Round-submission windows, settlement grace and option expiry still need a
-clock-controlling harness — see the harness note below.
+## Run it locally
 
-## Layout
+### Prerequisites
 
-```
-programs/stock_arena    authoritative state machine and value movement
-packages/shared         schemas, constants, normalization, reference scoring
-docs/                   integration evidence
-```
+- Node.js 20.6 or newer
+- PostgreSQL (a local database or a free Supabase project)
+- A Solana wallet such as Phantom, set to **Devnet**
+- API keys: Pyth (Hermes), ClawPump (`cpk_…`), and devnet plus mainnet RPC URLs (for example
+  Helius)
 
-`apps/web`, `apps/worker`, `packages/integrations` and `packages/idl` arrive with the code that
-needs them. The worker will be an independent long-running process, never a route inside the web
-app: rounds fire on a timer and a ClawPump turn can take 120 s.
+The Solana program is already deployed to devnet (`8xYafVKnRmi99cRPQV2TLRHRH2MsfjZtJH4DMy8anHiC`),
+so you don't need the Rust toolchain to run the app.
 
-## Setup
-
-Requires WSL (or Linux) for the Solana toolchain. `solana` and `anchor` are not on the
-non-interactive login PATH, so export it first:
+### Setup
 
 ```sh
-export PATH="$HOME/.avm/bin:$HOME/.local/share/solana/install/active_release/bin:$HOME/.cargo/bin:$PATH"
-avm use 0.31.1
-```
-
-```sh
+git clone https://github.com/Raveesh1007/PVParena.git
+cd PVParena
 npm install
-cp .env.example .env    # then fill it in; never commit .env
+cp .env.example .env
 ```
 
-PostgreSQL (orchestration and audit only, never authoritative for money). A dedicated container,
-then the schema; put the password you chose into `DATABASE_URL`:
+Fill in `.env`. The important values:
+
+| Variable                                       | What to put                                                        |
+| ---------------------------------------------- | ------------------------------------------------------------------ |
+| `DATABASE_URL`                                 | Your PostgreSQL URL (Supabase: use the **Session pooler** URL)     |
+| `SOLANA_RPC_URL`, `NEXT_PUBLIC_SOLANA_RPC_URL` | A devnet RPC URL                                                   |
+| `SOLANA_MAINNET_RPC_URL`                       | A mainnet RPC URL (read-only, for showing real holdings)           |
+| `PYTH_API_KEY`, `PYTH_BENCHMARK_FEED_ID`       | Your Hermes key and the TSLA Core feed ID in `config/arenas.json`  |
+| `CLAWPUMP_API_KEY`, `CLAWPUMP_PAID_MODEL`      | Your ClawPump key and a paid model, e.g. `openai/gpt-5.4-mini`     |
+| `ORCHESTRATOR_KEYPAIR_JSON`                    | A devnet-only keypair with a little devnet SOL, used by the worker |
+
+Create the database tables:
 
 ```sh
-docker run -d --name stock-arena-postgres --restart unless-stopped   -e POSTGRES_USER=stock_arena -e POSTGRES_PASSWORD=<password> -e POSTGRES_DB=stock_arena   -p 127.0.0.1:5440:5432 -v stock-arena-pgdata:/var/lib/postgresql/data postgres:17-alpine
-node --env-file=.env node_modules/prisma/build/index.js migrate deploy
+npx prisma migrate deploy
 ```
 
-Web app and worker, each in its own terminal from the repository root (both read the root `.env`
-and `config/arenas.json`):
+### Start
+
+Run each in its own terminal:
 
 ```sh
-npm run dev:web      # http://localhost:3000
-npm run dev:worker
+npm run dev:web      # the website, http://localhost:3000
+npm run dev:worker   # runs matches: calls the agents, records prices, settles
 ```
 
-The dev server writes `apps/web/.next-dev`; production builds write `apps/web/.next`. Restart an
-older dev server once after updating so it loads the separate output directory.
+Run exactly one worker. Matches only progress while it is running.
 
-The web app uses shadcn/ui source components in `apps/web/src/components/ui`, styled with the
-Stock Arena tokens. For new components on Tailwind 3, run `npx shadcn@2.3.0 add <component>
---cwd apps/web` from the repository root, then adapt its styles to `DESIGN.md`.
+### Test tokens
 
-Devnet assets: create the labelled test copy of a PreStocks token and the `USDC-DEV` quote mint,
-fund both demo players, and write the mints to `config/arenas.json` and `.env`. Re-runnable.
+Players need devnet test tokens to stake. The project authority mints them and funds wallets:
 
 ```sh
-SYMBOL=OPENAI AUTHORITY_KEYPAIR=~/.config/solana/id.json   PLAYERS=<playerA>,<playerB> npm run setup:devnet
+SYMBOL=OPENAI AUTHORITY_KEYPAIR=<path> PLAYERS=<walletA>,<walletB> npm run setup:devnet
 ```
 
-## Deployment
+## Deploying
 
-The program is already on devnet. The web app deploys to Vercel with Root Directory `apps/web`:
+- **Website:** Vercel, Root Directory `apps/web`.
+  - Install command: `npm install --prefix=../.. --include=dev`
+  - Build command:
+    `cd ../.. && npx --no-install prisma generate && npx --no-install tsc --build && npm run build --workspace @stock-arena/web`
+  - `DATABASE_URL`: Supabase **Transaction pooler** (port 6543) ending in
+    `?pgbouncer=true&connection_limit=1`.
+  - Keep `CLAWPUMP_*` and `ORCHESTRATOR_KEYPAIR_JSON` off Vercel. The website never needs them.
+- **Worker:** any always-on machine or service (it has no web port). Start it with
+  `npm run dev:worker`.
 
-- Install: `npm install --prefix=../.. --include=dev`
-- Build:
-  `cd ../.. && npx --no-install prisma generate && npx --no-install tsc --build && npm run build --workspace @stock-arena/web`
+## Project layout
 
-`config/arenas.json` is bundled into the web app at build time; edit it and redeploy to change
-Arenas. `ARENAS_CONFIG_PATH` is read only by the worker and scripts. Keep `CLAWPUMP_*` and
-`ORCHESTRATOR_KEYPAIR_JSON` off Vercel. The worker has no HTTP port and runs as a long-lived process
-wherever it can reach RPC, PostgreSQL, Hermes and ClawPump: `npm run dev:worker`. Use Supabase's
-session pooler (port 5432) for the web app's `DATABASE_URL`.
+```
+apps/web                Next.js website
+apps/worker             background process that runs matches
+programs/stock_arena    Solana (Anchor) program: escrow, scoring, payouts
+packages/integrations   Pyth, PreStocks, xStocks, Jupiter and ClawPump clients
+packages/shared         shared schemas, constants and scoring
+config/arenas.json      which tokens have an Arena
+```
 
-## Verification
-
-TypeScript, from Windows or WSL:
+## Tests
 
 ```sh
-npm run format:check
 npm run typecheck
-npm test              # 43 unit tests; does not need a validator
+npm test                 # unit tests, no network or keys needed
+bash scripts/verify.sh   # Solana program tests (Linux or WSL with the Anchor toolchain)
 ```
 
-Rust and program tests, from WSL (needs the Solana toolchain):
+## Security
 
-```sh
-bash scripts/verify.sh   # anchor build, cargo fmt, clippy -D warnings, program tests
-```
+The Solana program alone decides match terms, holds the stakes, validates the Pyth price, scores
+the predictions and moves funds. The website, worker, database and agents cannot pick a winner or
+move escrow. Scoring uses integer arithmetic only, agent wallets are always empty, and every
+terminal action can happen only once.
 
-Use that script rather than reading exit codes by hand. Two traps it guards against: `anchor test`
-exits 0 even when the suite crashes without running a single test, and `$?` does not survive a
-`wsl.exe -- bash -lc '...'` invocation, so a hand-captured exit code reads 0 regardless. The Vitest
-summary is the only trustworthy signal and a missing summary means failure.
+The worker sees both predictions before submitting them together. That stops players from copying
+each other, but the worker itself is trusted to pass answers on unchanged. The proof page's
+transcripts and hashes make that auditable.
 
-`npm run lint` is not wired — strict `tsc` covers the typing half; ESLint is deferred until the
-required MVP behavior is complete.
+## More
 
-### Harness note
-
-Program tests run on **bankrun**, not a validator, because a validator cannot move its clock and
-the deadline paths need it: the join window, the activation window (the only route into
-`refund_failed_match`), settlement grace and option expiry. Those windows are fixed by `code.md`
-§5.1 and pinned in `create_arena`, so tests warp the bank clock rather than shortening them.
-
-bankrun and LiteSVM both publish native bindings for linux and macOS only, with no win32 binary and
-no working WASI fallback, so **the program tests run under WSL**. The cross-platform native
-binaries are deliberately kept out of `package.json`, because declaring them makes every Windows
-`npm install` fail with `notsup`. Install them once:
-
-```sh
-npm run wsl:deps
-```
-
-A later `npm install` prunes them, so re-run it if the program tests stop resolving their bindings.
-
-External integration tests will be opt-in, so a normal run never spends ClawPump credits or needs
-private keys:
-
-```sh
-npm run test:integration:pyth
-npm run test:integration:clawpump
-```
-
-## Security boundary
-
-The Anchor program is authoritative for match terms and timestamps, deposits and escrow
-accounting, accepted paired predictions, Pyth validation, scores, winner selection, claims, option
-exercise, expiry reclaim and refunds. The frontend, worker, PostgreSQL and agents never choose a
-winner or move escrow outside a defined instruction.
-
-- Checked integer arithmetic only; no floats anywhere in financial or scoring logic.
-- Entitlements derive from internal recorded deposits, never raw vault balance, so an unsolicited
-  transfer into a vault grants nobody anything.
-- There is no admin or orchestrator vault-withdrawal path. `update_protocol_config` touches only
-  `ProtocolConfig` and cannot reach escrow.
-- Pause blocks new risk, never a refund, claim, exercise or expiry reclaim.
-- Battle-agent wallets are always empty and are never a delegate, authority or signer.
-- Strategy hashing is TypeScript-only: the program stores the 32-byte commitment and never
-  recomputes it.
-
-The worker sees both predictions before submitting them. Atomic paired submission prevents public
-copying and front-running, **not** worker manipulation — the transcript and response hashes make
-the demo auditable instead. Do not describe this as trustless.
-
-## Cost
-
-Everything on devnet is free. Real money is only ever spent on ClawPump paid-model credit and, if
-that bounty is attempted at all, an explicitly approved mainnet Champion launch.
-
-# PVParena
+- `code.md`: full product and technical specification
+- `DESIGN.md`: visual design system
+- `docs/integration-readiness.md`: evidence for each external integration
