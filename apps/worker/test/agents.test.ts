@@ -172,5 +172,7 @@ describe('price history', () => {
     expect(prompt).toContain('- Match start: 99 at exponent -5, published 990');
     expect(prompt).toContain('- Round 1: 103 at exponent -5, published 1001');
     expect(prompt).toContain('- Now: 100 at exponent -5, published 1000');
+    // The model guessed "1.0" when the value was not shown (2026-09-25).
+    expect(prompt).toContain('"schemaVersion": 1,');
   });
 });

@@ -16,7 +16,7 @@ Last updated: 2026-09-23
 | 6   | Official 32-byte Core feed ID resolved for the chosen symbol                  | **VERIFIED** | TSLA, 23 Sep 2026 — see "Benchmark decision" below                             |
 | 7   | Authenticated Hermes fetch succeeds at `pyth.dourolabs.app/hermes`            | **VERIFIED** | TSLA, 23 Sep 2026 08:14 UTC — see below                                        |
 | 8   | Update posted to and read from Solana devnet                                  | **VERIFIED** | TSLA, 23 Sep 2026 08:48 UTC — see "Devnet post/read" below                     |
-| 9   | `cpk_` key, verified paid model, sufficient credit                            | **VERIFIED** | 23 Sep 2026: `moonshotai/kimi-k2.5`, $1.008299 credit — see "ClawPump billing" |
+| 9   | `cpk_` key, verified paid model, sufficient credit                            | **VERIFIED** | 25 Sep 2026: switched to `openai/gpt-5.4-mini` — see "ClawPump model switch"   |
 | 10  | Empty `monitor-exit` battle agent completes one strict-JSON call, no tool use | **BLOCKED**  | 23 Sep 2026: model not honoured, reply empty once — see "ClawPump gate 10"     |
 | 11  | ClawPump answered the Pump.fun-versus-Meteora question                        | **ANSWERED** | Discord, Tomi204, 20–22 Sep 2026 — see "ClawPump launch route" below           |
 | 12  | `/pump-pairs` lists an eligible stock mint; launch preflight recorded unpaid  | UNVERIFIED   |                                                                                |
@@ -66,6 +66,26 @@ Blockers to raise with ClawPump: (1) why a paid, pinned model is replaced by `gp
 ~4k-token prompt means tool definitions are sent to the model. Both test agents were stopped via
 `POST /stop` afterwards (not deleted); both are `is_public: true` and `accepting_bids: true`, with always-on skills
 including `wallet-ops`, `perps-trading`, `x402` and `private-transfers`.
+
+## ClawPump model switch (verified 2026-09-25)
+
+`CLAWPUMP_PAID_MODEL` changed from `moonshotai/kimi-k2.5` to `openai/gpt-5.4-mini` (catalog:
+$0.975 / $5.85 per million input/output tokens). Account credit before the tests: 0.940347.
+
+- **kimi-k2.5 failed intermittently.** Across devnet matches `5T7zsLv…`, `EXoU3ka…` and `Hj6TmiY…`,
+  7 of 14 chats that reached ClawPump returned HTTP 500 after 35–60 s with no `requestId`, and none
+  of them appear in the agent's message history. Agents were `running` throughout.
+- **gemini-2.5-flash is unusable here.** Two gate runs (agents `93af2751…`, `845226f9…`, requestIds
+  `ef7ce90b…`, `4a839619…`, 8.4 s each): ClawPump fetched `https://Equity.US.TSLA/USD` from the
+  symbol and the reply led with the fetch error, then a fenced object. Strictly parsed as
+  malformed, even after the prompt forbade tools.
+- **gpt-5.4-mini passes.** Gate requested `openai/gpt-5-mini`; creation reported
+  `openai/gpt-5.4-mini`, so that is the configured value. Agent `595a4da8…`, `requestId a1f79aef…`,
+  3.2 s, strict JSON parsed `valid`. Every agent wallet read empty on mainnet before and after.
+- The earlier `schemaVersion` malformed replies were a prompt bug (the value was never shown); the
+  prompt now includes `"schemaVersion": 1`.
+- Open: ClawPump replays each agent's chat history to the model, and battle agents are reused per
+  wallet, so a reply referenced the player's strategy from a previous match. Not yet fixed.
 
 ## Web transaction builders on devnet (verified 2026-09-23)
 

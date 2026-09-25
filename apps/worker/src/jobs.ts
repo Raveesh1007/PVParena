@@ -70,31 +70,46 @@ export async function withJobLease(
     if (claimed.count === 0) return 'skipped';
   }
 
+  const requeue = {
+    status: 'Pending',
+    leaseOwner: null,
+    leaseExpiry: null,
+    nextAttempt: new Date(Date.now() + 15_000),
+  } as const;
   try {
     const result = await work();
     await db.orchestrationJob.updateMany({
       where: { idempotencyKey: spec.key, status: 'Leased', leaseOwner: owner },
       data:
-        result === 'retry'
-          ? {
-              status: 'Pending',
-              leaseOwner: null,
-              leaseExpiry: null,
-              nextAttempt: new Date(Date.now() + 15_000),
-            }
-          : { status: 'Succeeded', leaseOwner: null, leaseExpiry: null },
+        result === 'retry' ? requeue : { status: 'Succeeded', leaseOwner: null, leaseExpiry: null },
     });
     return result;
   } catch (error) {
+    // Losing the database is safe to repeat: every chat is reserved in AgentTurn before it is
+    // sent, so a re-run reuses recorded turns instead of asking the model again.
+    const unavailable = isDatabaseUnavailable(error);
     await db.orchestrationJob.updateMany({
       where: { idempotencyKey: spec.key, status: 'Leased', leaseOwner: owner },
-      data: {
-        status: 'Failed',
-        leaseOwner: null,
-        leaseExpiry: null,
-        errorSummary: summarize(String((error as Error)?.message ?? error)),
-      },
+      data: unavailable
+        ? requeue
+        : {
+            status: 'Failed',
+            leaseOwner: null,
+            leaseExpiry: null,
+            errorSummary: summarize(String((error as Error)?.message ?? error)),
+          },
     });
+    if (unavailable) return 'retry';
     throw error;
   }
+}
+
+const DATABASE_UNAVAILABLE_CODES = new Set(['P1001', 'P1002', 'P1017', 'P2024']);
+
+export function isDatabaseUnavailable(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientInitializationError ||
+    (error instanceof Prisma.PrismaClientKnownRequestError &&
+      DATABASE_UNAVAILABLE_CODES.has(error.code))
+  );
 }

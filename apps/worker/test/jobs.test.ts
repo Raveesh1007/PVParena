@@ -59,3 +59,34 @@ it('an expired worker cannot complete the lease now owned by another worker', as
   await newer;
   expect(row!.status).toBe('Succeeded');
 });
+
+it('requeues a job that lost the database instead of failing it', async () => {
+  let row: Record<string, unknown> | undefined;
+  const db = {
+    orchestrationJob: {
+      create: vi.fn(async ({ data }) => {
+        row = { ...data };
+      }),
+      updateMany: vi.fn(async ({ data }) => {
+        Object.assign(row!, data);
+        return { count: 1 };
+      }),
+    },
+  };
+  const spec = { key: 'round:match:1', type: 'SubmitRound' as const, matchPda: 'match', round: 1 };
+  const result = await withJobLease(db as unknown as PrismaClient, spec, async () => {
+    throw new Prisma.PrismaClientKnownRequestError("Can't reach database server", {
+      code: 'P1001',
+      clientVersion: '6',
+    });
+  });
+  expect(result).toBe('retry');
+  expect(row!.status).toBe('Pending');
+
+  await expect(
+    withJobLease(db as unknown as PrismaClient, { ...spec, key: 'round:match:2' }, async () => {
+      throw new Error('ClawPump chat failed');
+    }),
+  ).rejects.toThrow('ClawPump chat failed');
+  expect(row!.status).toBe('Failed');
+});

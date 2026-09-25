@@ -152,7 +152,7 @@ export function buildPrompt(context: RoundContext, strategy: string | null): str
     `Round ${context.round} of 3 in match ${context.matchPda.toBase58()}.`,
     '',
     'Benchmark facts (identical for both players):',
-    JSON.stringify(schema, null, 2),
+    JSON.stringify({ schemaVersion: 1, ...schema }, null, 2),
     '',
     'Price history this match, oldest first (identical for both players):',
     ...context.history.map(
@@ -168,6 +168,7 @@ export function buildPrompt(context: RoundContext, strategy: string | null): str
     '',
     'Echo every field above back unchanged. predictedFinalPrice is a positive decimal string at',
     `exponent ${context.observed.exponent}. confidenceBps is 0-10000. thesis is at most 280 bytes.`,
+    'Do not call tools or fetch anything; every fact you need is above. The symbol is not a URL.',
     'No markdown fences, no prose outside the object.',
     '',
     '<player_strategy>',
